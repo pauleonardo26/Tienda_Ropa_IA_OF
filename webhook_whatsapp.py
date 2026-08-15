@@ -43,12 +43,25 @@ def enviar_mensaje(numero_destino, mensaje):
         "Content-Type": "application/json"
     }
 
+    # =========================================================
+    # DESTINATARIO - TELEFONO O BSUID
+    # =========================================================
+
+    if str(numero_destino).startswith("PE."):
+        destino = {
+        "recipient": numero_destino
+    }
+    else:
+        destino = {
+        "to": numero_destino
+    }
+
     datos = {
-        "messaging_product": "whatsapp",
-        "to": numero_destino,
-        "type": "text",
-        "text": {
-            "body": mensaje
+    "messaging_product": "whatsapp",
+    **destino,
+    "type": "text",
+    "text": {
+        "body": mensaje
         }
     }
 
@@ -62,6 +75,461 @@ def enviar_mensaje(numero_destino, mensaje):
     print("Código texto:", respuesta.status_code)
     print("Respuesta WhatsApp:", respuesta.text)
 
+
+# =========================================================
+# TARJETA 1 - BIENVENIDA / NIÑO O NIÑA
+# =========================================================
+
+def enviar_tarjeta_bienvenida(numero_destino):
+
+    print("Enviando Tarjeta 1 a:", numero_destino)
+
+    url = (
+        f"https://graph.facebook.com/v26.0/"
+        f"{PHONE_NUMBER_ID}/messages"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    # =========================================================
+    # DESTINATARIO TARJETA 1 - TELEFONO O BSUID
+    # =========================================================
+
+    if str(numero_destino).startswith("PE."):
+        destino = {
+            "recipient": numero_destino
+        }
+    else:
+        destino = {
+            "to": numero_destino
+        }
+
+    datos = {
+        "messaging_product": "whatsapp",
+        **destino,
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "header": {
+                "type": "text",
+                "text": "🛍️ OUTLET VALENTINA KIDS"
+            },
+            "body": {
+                "text": (
+                    "👋 *¡Bienvenido a Outlet Valentina Kids Perú!*\n\n"
+                    "Tenemos prendas para los peques de la casa 💕\n"
+                    "¿Qué deseas ver?"
+                )
+            },
+            "footer": {
+                "text": "✨ Toca una opción para continuar"
+            },
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "catalogo_nino",
+                            "title": "👦 NIÑO"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "catalogo_nina",
+                            "title": "👧 NIÑA"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+
+    respuesta = requests.post(
+        url,
+        headers=headers,
+        json=datos,
+        timeout=30
+    )
+
+    print("Código Tarjeta 1:", respuesta.status_code)
+    print("Respuesta Tarjeta 1:", respuesta.text)
+
+    respuesta.raise_for_status()
+
+# =========================================================
+# TARJETA 2 - ROPA PARA NIÑA
+# =========================================================
+
+def enviar_tarjeta_nina(numero_destino):
+
+    print("Enviando Tarjeta 2 - Ropa para niña a:", numero_destino)
+
+    url = (
+        f"https://graph.facebook.com/v26.0/"
+        f"{PHONE_NUMBER_ID}/messages"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    # =========================================================
+    # DESTINATARIO TARJETA 2 - TELEFONO O BSUID
+    # =========================================================
+
+    if str(numero_destino).startswith("PE."):
+        destino = {
+            "recipient": numero_destino
+        }
+    else:
+        destino = {
+            "to": numero_destino
+        }
+
+    datos = {
+        "messaging_product": "whatsapp",
+        **destino,
+        "type": "interactive",
+        "interactive": {
+            "type": "list",
+            "header": {
+                "type": "text",
+                "text": "🌸 ROPA PARA NIÑA"
+            },
+            "body": {
+                "text": (
+                    "Elige la prenda que deseas ver 💕\n\n"
+                    "Tenemos modelos, tallas y colores disponibles."
+                )
+            },
+            "footer": {
+                "text": "✨ Toca el botón para ver las opciones"
+            },
+            "action": {
+                "button": "VER PRENDAS 👇",
+                "sections": [
+                    {
+                        "title": "CATÁLOGO NIÑA",
+                        "rows": [
+                            {
+                                "id": "nina_legging",
+                                "title": "🌸 LEGGING",
+                                "description": "Ver leggings para niña"
+                            },
+                            {
+                                "id": "nina_short",
+                                "title": "🩳 SHORT",
+                                "description": "Ver shorts para niña"
+                            },
+                            {
+                                "id": "nina_palazo",
+                                "title": "👖 PALAZO",
+                                "description": "Ver palazos para niña"
+                            },
+                            {
+                                "id": "nina_conjunto",
+                                "title": "👗 CONJUNTO",
+                                "description": "Ver conjuntos para niña"
+                            },
+                            {
+                                "id": "nina_polo",
+                                "title": "👕 POLO",
+                                "description": "Ver polos para niña"
+                            }
+                        ]
+                    },
+                    {
+                        "title": "OTRO CATÁLOGO",
+                        "rows": [
+                            {
+                                "id": "catalogo_nino",
+                                "title": "👦 VER NIÑO",
+                                "description": "Cambiar al catálogo para niño"
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+
+    respuesta = requests.post(
+        url,
+        headers=headers,
+        json=datos,
+        timeout=30
+    )
+
+    print("Código Tarjeta 2:", respuesta.status_code)
+    print("Respuesta Tarjeta 2:", respuesta.text)
+
+    respuesta.raise_for_status()
+
+# =========================================================
+# SUBMENÚ - ROPA PARA NIÑO
+# =========================================================
+
+def enviar_tarjeta_nino(numero_destino):
+
+    print("Enviando menú Ropa para niño a:", numero_destino)
+
+    url = (
+        f"https://graph.facebook.com/v26.0/"
+        f"{PHONE_NUMBER_ID}/messages"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    # =========================================================
+    # DESTINATARIO SUBMENÚ NIÑO - TELEFONO O BSUID
+    # =========================================================
+
+    if str(numero_destino).startswith("PE."):
+        destino = {
+            "recipient": numero_destino
+        }
+    else:
+        destino = {
+            "to": numero_destino
+        }
+
+    datos = {
+        "messaging_product": "whatsapp",
+        **destino,
+        "type": "interactive",
+        "interactive": {
+            "type": "list",
+            "header": {
+                "type": "text",
+                "text": "💙 ROPA PARA NIÑO"
+            },
+            "body": {
+                "text": "Elige la prenda que deseas ver 👇"
+            },
+            "footer": {
+                "text": "✨ Toca el botón para continuar"
+            },
+            "action": {
+                "button": "VER PRENDAS 👇",
+                "sections": [
+                    {
+                        "title": "CATÁLOGO NIÑO",
+                        "rows": [
+                            {
+                                "id": "nino_polos",
+                                "title": "👕 POLOS",
+                                "description": "Ver polos para niño"
+                            },
+                            {
+                                "id": "nino_joggers",
+                                "title": "👖 JOGGERS",
+                                "description": "Ver joggers para niño"
+                            },
+                            {
+                                "id": "nino_conjunto",
+                                "title": "🧢 CONJUNTO",
+                                "description": "Ver conjuntos para niño"
+                            }
+                        ]
+                    },
+                    {
+                        "title": "OTRO CATÁLOGO",
+                        "rows": [
+                            {
+                                "id": "catalogo_nina",
+                                "title": "👧 VER NIÑA",
+                                "description": "Cambiar al catálogo para niña"
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+
+    respuesta = requests.post(
+        url,
+        headers=headers,
+        json=datos,
+        timeout=30
+    )
+
+    print("Código menú niño:", respuesta.status_code)
+    print("Respuesta menú niño:", respuesta.text)
+
+    respuesta.raise_for_status()
+
+# =========================================================
+# TARJETA 3 - LEGGING NIÑA
+# =========================================================
+
+def enviar_tarjeta_legging(numero_destino):
+
+    print("Enviando Tarjeta 3 REAL - Legging a:", numero_destino)
+
+    url = f"https://graph.facebook.com/v26.0/{PHONE_NUMBER_ID}/messages"
+
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    # =========================================================
+    # DESTINATARIO TARJETA 3 - TELEFONO O BSUID
+    # =========================================================
+
+    if str(numero_destino).startswith("PE."):
+        destino = {
+            "recipient": numero_destino
+        }
+    else:
+        destino = {
+            "to": numero_destino
+        }
+
+    imagen_url = (
+        "https://pub-9aa04db1bd594751a5b8fb2654da15fd.r2.dev/"
+        "productos/leggins_nina.png"
+    )
+
+    # =========================================================
+    # TARJETA 3 - ENVIAR IMAGEN
+    # =========================================================
+
+    datos_imagen = {
+        "messaging_product": "whatsapp",
+        **destino,
+        "type": "image",
+        "image": {
+            "link": imagen_url
+        }
+    }
+
+    respuesta_imagen = requests.post(
+        url,
+        headers=headers,
+        json=datos_imagen,
+        timeout=30
+    )
+
+    print("Código imagen Legging:", respuesta_imagen.status_code)
+    print("Respuesta imagen Legging:", respuesta_imagen.text)
+
+    respuesta_imagen.raise_for_status()
+
+    # =========================================================
+    # TARJETA 3 - BOTONES GRUPO 1
+    # =========================================================
+
+    datos_botones_1 = {
+        "messaging_product": "whatsapp",
+        **destino,
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {
+                "text": "🌸 Sigue viendo prendas para niña:"
+            },
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "nina_short",
+                            "title": "🩳 SHORT"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "nina_palazo",
+                            "title": "👖 PALAZO"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "nina_conjunto",
+                            "title": "👗 CONJUNTO"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+
+    respuesta_botones_1 = requests.post(
+        url,
+        headers=headers,
+        json=datos_botones_1,
+        timeout=30
+    )
+
+    print("Código botones 1:", respuesta_botones_1.status_code)
+    print("Respuesta botones 1:", respuesta_botones_1.text)
+
+    respuesta_botones_1.raise_for_status()
+
+    # =========================================================
+    # TARJETA 3 - BOTONES GRUPO 2
+    # =========================================================
+
+    datos_botones_2 = {
+        "messaging_product": "whatsapp",
+        **destino,
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {
+                "text": "🛍️ ¿Qué deseas hacer?"
+            },
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "nina_polo",
+                            "title": "👕 POLO"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "hacer_pedido",
+                            "title": "🛍️ HACER PEDIDO"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "catalogo_nino",
+                            "title": "👦 VER NIÑO"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+
+    respuesta_botones_2 = requests.post(
+        url,
+        headers=headers,
+        json=datos_botones_2,
+        timeout=30
+    )
+
+    print("Código botones 2:", respuesta_botones_2.status_code)
+    print("Respuesta botones 2:", respuesta_botones_2.text)
+
+    respuesta_botones_2.raise_for_status()
 
 # =========================================================
 # CONSULTAR PRODUCTO REAL EN POSTGRESQL
@@ -283,25 +751,25 @@ def verificar_webhook():
 def recibir_mensaje():
 
     print("ENTRO AL WEBHOOK POST")
-
     datos = request.get_json()
-
     print("\n========== EVENTO RECIBIDO ==========")
     print(datos)
 
     try:
-
         valor = datos["entry"][0]["changes"][0]["value"]
 
+        # =========================================================
+        # IGNORAR ESTADOS DE ENTREGA
+        # =========================================================
         if "messages" not in valor:
-
             print("El evento no contiene un mensaje de cliente.")
-
             return "EVENT_RECEIVED", 200
 
         mensaje = valor["messages"][0]
 
-        # Meta puede reenviar el mismo webhook. Evitamos responder varias veces.
+        # =========================================================
+        # EVITAR MENSAJES DUPLICADOS
+        # =========================================================
         mensaje_id = mensaje.get("id")
 
         if mensaje_id and mensaje_id in MENSAJES_PROCESADOS:
@@ -311,137 +779,177 @@ def recibir_mensaje():
         if mensaje_id:
             MENSAJES_PROCESADOS.add(mensaje_id)
 
+        # =========================================================
+        # IDENTIFICAR CLIENTE - TELEFONO O BSUID
+        # =========================================================
         numero_cliente = mensaje.get("from")
+        bsuid_cliente = mensaje.get("from_user")
+        contactos = valor.get("contacts", [])
 
-        if not numero_cliente:
-            numero_cliente = valor.get("metadata", {}).get("display_phone_number")
+        if contactos:
+            contacto = contactos[0]
 
+            if not numero_cliente:
+                numero_cliente = contacto.get("wa_id")
 
-        print("Número del cliente:", numero_cliente)
-        print("Tipo de mensaje:", mensaje["type"])
+            if not bsuid_cliente:
+                bsuid_cliente = contacto.get("user_id")
 
-        if mensaje["type"] != "text":
-
-            print("Por ahora solo procesamos mensajes de texto.")
-
+        if numero_cliente:
+            cliente_destino = numero_cliente
+            tipo_cliente = "telefono"
+        elif bsuid_cliente:
+            cliente_destino = bsuid_cliente
+            tipo_cliente = "bsuid"
+        else:
+            print("No se pudo identificar al cliente.")
             return "EVENT_RECEIVED", 200
 
-        texto_cliente = (
-            mensaje["text"]["body"]
-            .strip()
-            .lower()
-        )
+        # =========================================================
+        # DESTINATARIO UNIFICADO - TELEFONO O BSUID
+        # =========================================================
+        numero_cliente = cliente_destino
 
+        print("Cliente destino:", cliente_destino)
+        print("Tipo identificador:", tipo_cliente)
+
+        tipo_mensaje = mensaje.get("type")
+        print("Tipo de mensaje:", tipo_mensaje)
+
+        # =========================================================
+        # RESPUESTA A BOTONES INTERACTIVOS
+        # =========================================================
+        if tipo_mensaje == "interactive":
+            interactive = mensaje.get("interactive", {})
+            tipo_interactivo = interactive.get("type")
+
+            # =========================================================
+            # BOTONES DIRECTOS
+            # =========================================================
+            if tipo_interactivo == "button_reply":
+                boton = interactive.get("button_reply", {})
+                boton_id = boton.get("id", "")
+                boton_titulo = boton.get("title", "")
+                print("Botón recibido:", boton_id, "-", boton_titulo)
+
+                if boton_id == "catalogo_nina":
+                    enviar_tarjeta_nina(numero_cliente)
+                    return "EVENT_RECEIVED", 200
+
+                if boton_id == "catalogo_nino":
+                    enviar_tarjeta_nino(numero_cliente)
+                    return "EVENT_RECEIVED", 200
+
+                respuestas_botones = {
+                    "nina_short": "🩳 Elegiste *SHORT*.\n\nPróxima tarjeta a conectar.",
+                    "nina_palazo": "👖 Elegiste *PALAZO*.\n\nPróxima tarjeta a conectar.",
+                    "nina_conjunto": "👗 Elegiste *CONJUNTO*.\n\nPróxima tarjeta a conectar.",
+                    "nina_polo": "👕 Elegiste *POLO*.\n\nPróxima tarjeta a conectar."
+                }
+
+                if boton_id in respuestas_botones:
+                    enviar_mensaje(numero_cliente, respuestas_botones[boton_id])
+                    return "EVENT_RECEIVED", 200
+
+                if boton_id == "hacer_pedido":
+                    enviar_mensaje(
+                        numero_cliente,
+                        "🛍️ *HACER MI PEDIDO*\n\n"
+                        "Escríbeme todo lo que deseas pedir en un solo mensaje.\n\n"
+                        "Ejemplo:\n"
+                        "3 leggings negros talla 8 y 2 polos talla 10."
+                    )
+                    return "EVENT_RECEIVED", 200
+
+            # =========================================================
+            # LISTAS INTERACTIVAS
+            # =========================================================
+            if tipo_interactivo == "list_reply":
+                opcion = interactive.get("list_reply", {})
+                opcion_id = opcion.get("id", "")
+                opcion_titulo = opcion.get("title", "")
+                print("Opción recibida:", opcion_id, "-", opcion_titulo)
+
+                if opcion_id == "nina_legging":
+                    enviar_tarjeta_legging(numero_cliente)
+                    return "EVENT_RECEIVED", 200
+
+                respuestas = {
+                    "nina_short": "🩳 Elegiste *SHORT*.\n\nPróxima tarjeta a conectar.",
+                    "nina_palazo": "👖 Elegiste *PALAZO*.\n\nPróxima tarjeta a conectar.",
+                    "nina_conjunto": "👗 Elegiste *CONJUNTO*.\n\nPróxima tarjeta a conectar.",
+                    "nina_polo": "👕 Elegiste *POLO*.\n\nPróxima tarjeta a conectar.",
+                    "nino_polos": "👕 Elegiste *POLOS DE NIÑO*.\n\nPróxima tarjeta a conectar.",
+                    "nino_joggers": "👖 Elegiste *JOGGERS DE NIÑO*.\n\nPróxima tarjeta a conectar.",
+                    "nino_conjunto": "🧢 Elegiste *CONJUNTO DE NIÑO*.\n\nPróxima tarjeta a conectar."
+                }
+
+                if opcion_id in respuestas:
+                    enviar_mensaje(numero_cliente, respuestas[opcion_id])
+                    return "EVENT_RECEIVED", 200
+
+                if opcion_id == "catalogo_nino":
+                    enviar_tarjeta_nino(numero_cliente)
+                    return "EVENT_RECEIVED", 200
+
+                if opcion_id == "catalogo_nina":
+                    enviar_tarjeta_nina(numero_cliente)
+                    return "EVENT_RECEIVED", 200
+
+                if opcion_id == "hacer_pedido":
+                    enviar_mensaje(
+                        numero_cliente,
+                        "🛍️ *HACER MI PEDIDO*\n\n"
+                        "Escríbeme todo lo que deseas pedir en un solo mensaje.\n\n"
+                        "Ejemplo:\n"
+                        "3 leggings negros talla 8 y 2 polos talla 10."
+                    )
+                    return "EVENT_RECEIVED", 200
+
+            print("Interacción no reconocida.")
+            return "EVENT_RECEIVED", 200
+
+        # =========================================================
+        # MENSAJES QUE NO SON TEXTO
+        # =========================================================
+        if tipo_mensaje != "text":
+            print("Tipo de mensaje todavía no procesado:", tipo_mensaje)
+            return "EVENT_RECEIVED", 200
+
+        # =========================================================
+        # LEER TEXTO DEL CLIENTE
+        # =========================================================
+        texto_cliente = mensaje["text"]["body"].strip().lower()
         print("Texto recibido:", texto_cliente)
 
-
-        # =================================================
+        # =========================================================
         # CATÁLOGO REAL
-        # =================================================
+        # =========================================================
 
         if texto_cliente in ["catalogo", "catálogo"]:
+            enviar_tarjeta_bienvenida(numero_cliente)
+            return "EVENT_RECEIVED", 200
 
-            producto = obtener_producto_catalogo()
-
-            if not producto:
-
-                enviar_mensaje(
-                    numero_cliente,
-                    "En este momento no tenemos productos disponibles."
-                )
-
-                return "EVENT_RECEIVED", 200
-
-
-            nombre, precio, talla, color, stock, ruta_foto = producto
-
-
-            texto_producto = (
-                f"🛍️ *{nombre}*\n\n"
-                f"💰 Precio: S/ {precio:.2f}\n"
-                f"📏 Talla: {talla}\n"
-                f"🎨 Color: {color}\n"
-                f"📦 Stock disponible: {stock}\n\n"
-                f"¿Deseas este producto?"
-            )
-
-
-            if ruta_foto:
-
-                foto_bytes = obtener_foto_r2(
-                    ruta_foto
-                )
-
-                media_id = subir_foto_meta(
-                    foto_bytes
-                )
-
-                enviar_imagen(
-                    numero_cliente,
-                    media_id,
-                    texto_producto
-                )
-
-                # Finaliza correctamente este webhook para que Meta no lo reintente.
-                return "EVENT_RECEIVED", 200
-
-            else:
-                # Si no hay foto, enviamos la ficha del producto por texto.
-                enviar_mensaje(
-                    numero_cliente,
-                    texto_producto
-                )
-                return "EVENT_RECEIVED", 200
-            
-
-
-        # =================================================
+        # =========================================================
         # SALUDO
-        # =================================================
-
-        elif texto_cliente in [
-            "hola",
-            "buenas",
-            "buenos dias",
-            "buenos días"
-        ]:
-
+        # =========================================================
+        elif texto_cliente in ["hola", "buenas", "buenos dias", "buenos días"]:
             enviar_mensaje(
                 numero_cliente,
-                (
-                    "Hola 👋\n\n"
-                    "Escribe *catálogo* para conocer "
-                    "nuestros productos."
-                )
+                "Hola 👋\n\nEscribe *catálogo* para conocer nuestros productos."
             )
-
             return "EVENT_RECEIVED", 200
 
-
-        # =================================================
-        # OTROS MENSAJES
-        # =================================================
-
-        
+        # =========================================================
+        # OTROS MENSAJES - GEMINI
+        # =========================================================
         else:
-            respuesta_gemini = responder_con_gemini(
-                texto_cliente
-                )
-
-            enviar_mensaje(
-                numero_cliente,
-                respuesta_gemini
-                )
-
+            respuesta_gemini = responder_con_gemini(texto_cliente)
+            enviar_mensaje(numero_cliente, respuesta_gemini)
             return "EVENT_RECEIVED", 200
-        
-        
-
 
     except Exception as error:
-
         print("Error procesando el mensaje:", error)
-
         return "EVENT_RECEIVED", 200
 
 
@@ -461,6 +969,7 @@ if __name__ == "__main__":
     )
 
 
+
 # meta 
 #3E1XYUHozkyqZzqQDAu7CKbwOzF_6THbSWMuGsk1as7xSHNgD NGROK
-#web https://www.facebook.com/outletvalentinakidsperu
+#web https://www.facebook.com/outletvalentinakidsperufrom flask import Flask, request
