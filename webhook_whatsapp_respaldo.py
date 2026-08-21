@@ -16,10 +16,6 @@ from config_whatsapp import (
     WHATSAPP_VERIFY_TOKEN
 )
 
-# =========================================================
-# 01 - CONFIGURACION GENERAL Y ESTADO DE CLIENTES
-# =========================================================
-
 load_dotenv()
 
 app = Flask(__name__)
@@ -27,7 +23,10 @@ app = Flask(__name__)
 # Evita procesar dos veces el mismo mensaje si Meta reintenta el webhook.
 MENSAJES_PROCESADOS = set()
 
-# Guarda el estado temporal de la conversación de cada cliente.
+# =========================================================
+# 01 - ESTADO DE CONVERSACION DE CADA CLIENTE
+# =========================================================
+
 ESTADO_CLIENTES = {}
 
 ACCESS_TOKEN = WHATSAPP_TOKEN
@@ -796,12 +795,10 @@ def verificar_webhook():
 
 
 # =========================================================
-# 19 - VALIDAR PEDIDO CONTRA POSTGRESQL
+# 22 - VALIDAR PEDIDO CONTRA POSTGRESQL
 # =========================================================
 
 def validar_pedido_postgresql(pedido_interpretado):
-
-    conexion.rollback()
 
     productos_pedido = pedido_interpretado.get("productos", [])
 
@@ -809,10 +806,9 @@ def validar_pedido_postgresql(pedido_interpretado):
     errores = []
     total = 0
 
-
-    # =========================================================
-    # 19.1 - MAPA DE NOMBRES GEMINI -> POSTGRESQL
-    # =========================================================
+    # ---------------------------------------------------------
+    # NOMBRES QUE GEMINI PUEDE USAR -> NOMBRE REAL POSTGRESQL
+    # ---------------------------------------------------------
 
     mapa_productos = {
         "legging": "Leggins Niña",
@@ -829,20 +825,7 @@ def validar_pedido_postgresql(pedido_interpretado):
             "Polo Niña Manga Larga Pequeño",
 
         "polo manga larga grande":
-            "Polo Niña Manga Larga Grande",
-
-        # El cliente no necesita decir pequeño/grande.
-        "polo manga corta":
-            "POLO_MANGA_CORTA",
-
-        "polo m/c":
-            "POLO_MANGA_CORTA",
-
-        "polo manga larga":
-            "POLO_MANGA_LARGA",
-
-        "polo m/l":
-            "POLO_MANGA_LARGA"
+            "Polo Niña Manga Larga Grande"
     }
 
     cursor = conexion.cursor()
@@ -857,327 +840,178 @@ def validar_pedido_postgresql(pedido_interpretado):
                 .lower()
             )
 
-            cantidad = int(item.get("cantidad", 0) or 0)
+            cantidad = item.get("cantidad", 0)
+            talla = str(item.get("talla", "")).strip()
 
-            tallas = [
-                str(talla).strip()
-                for talla in item.get("tallas", [])
-                if str(talla).strip()
-            ]
+            colores = item.get("colores", [])
 
-            colores = [
-                str(color).strip()
-                for color in item.get("colores", [])
-                if str(color).strip()
-            ]
+            nombre_real = mapa_productos.get(
+                producto_gemini
+            )
 
-            nombre_real = mapa_productos.get(producto_gemini)
-
-            # =========================================================
-            # 19.1.1 - DEFINIR POLO PEQUEÑO O GRANDE SEGUN TALLA
-            # =========================================================
-
-            if nombre_real == "POLO_MANGA_CORTA":
-
-                tallas_mc_pequeno = {"4", "6", "8"}
-                tallas_mc_grande = {"10", "12", "14"}
-
-                conjunto_tallas = set(tallas)
-
-                if conjunto_tallas.issubset(tallas_mc_pequeno):
-
-                    nombre_real = (
-                        "Polo Niña Manga Corta Pequeño"
-                    )
-
-                elif conjunto_tallas.issubset(tallas_mc_grande):
-
-                    nombre_real = (
-                        "Polo Niña Manga Corta Grande"
-                    )
-
-                else:
-
-                    errores.append(
-                        "⚠️ En polo manga corta mezclaste tallas "
-                        "pequeñas y grandes. Escríbelas por separado."
-                    )
-
-                    continue
-
-
-            if nombre_real == "POLO_MANGA_LARGA":
-
-                tallas_ml_pequeno = {"4", "6", "8"}
-                tallas_ml_grande = {"10", "12"}
-
-                conjunto_tallas = set(tallas)
-
-                if conjunto_tallas.issubset(tallas_ml_pequeno):
-
-                    nombre_real = (
-                        "Polo Niña Manga Larga Pequeño"
-                    )
-
-                elif conjunto_tallas.issubset(tallas_ml_grande):
-
-                    nombre_real = (
-                        "Polo Niña Manga Larga Grande"
-                    )
-
-                else:
-
-                    errores.append(
-                        "⚠️ En polo manga larga mezclaste tallas "
-                        "pequeñas y grandes. Escríbelas por separado."
-                    )
-
-                    continue
-
-
-            # =========================================================
-            # 19.2 - VALIDACIONES BASICAS DEL ITEM
-            # =========================================================
+            # =================================================
+            # 22.1 - PRODUCTO NO RECONOCIDO
+            # =================================================
 
             if not nombre_real:
 
                 errores.append(
-                    f"❌ No reconocí el producto: {producto_gemini}"
+                    f"❌ No reconocí el producto: "
+                    f"{producto_gemini}"
                 )
 
                 continue
 
-            if cantidad <= 0:
+            # =================================================
+            # 22.2 - BUSCAR VARIANTES DEL PRODUCTO Y TALLA
+            # =================================================
 
-                errores.append(
-                    f"⚠️ {nombre_real}: la cantidad debe ser mayor a 0."
+            cursor.execute(
+                """
+                SELECT
+                    v.id_variante,
+                    v.talla,
+                    v.color,
+                    v.stock,
+                    v.precio
+                FROM variantes_producto v
+                JOIN productos p
+                    ON p.id_producto = v.id_producto
+                WHERE LOWER(p.nombre) = LOWER(%s)
+                  AND v.talla = %s
+                """,
+                (
+                    nombre_real,
+                    talla
                 )
+            )
 
-                continue
+            variantes = cursor.fetchall()
 
-            if not tallas:
+            # =================================================
+            # 22.3 - TALLA NO EXISTE
+            # =================================================
 
-                errores.append(
-                    f"⚠️ Falta indicar la talla para {nombre_real}."
-                )
-
-                continue
-
-            # =========================================================
-            # 19.3 - DISTRIBUIR CANTIDAD ENTRE TALLAS
-            # =========================================================
-
-            if len(tallas) == 1:
-                tallas_por_unidad = [tallas[0]] * cantidad
-
-            elif len(tallas) == cantidad:
-                tallas_por_unidad = list(tallas)
-
-            elif cantidad % len(tallas) == 0:
-                repeticiones = cantidad // len(tallas)
-                tallas_por_unidad = []
-
-                for talla in tallas:
-                    tallas_por_unidad.extend([talla] * repeticiones)
-
-            else:
-                errores.append(
-                    f"⚠️ {nombre_real}: pediste {cantidad} unidades "
-                    f"pero indicaste {len(tallas)} tallas ({', '.join(tallas)}). "
-                    "Indícame cuántas unidades quieres de cada talla."
-                )
-
-                continue
-
-            # =========================================================
-            # 19.4 - DISTRIBUIR COLORES
-            # =========================================================
-
-            if not colores:
-                colores_por_unidad = [""] * cantidad
-
-            elif len(colores) == 1:
-                colores_por_unidad = [colores[0]] * cantidad
-
-            elif len(colores) == cantidad:
-                colores_por_unidad = list(colores)
-
-            elif cantidad % len(colores) == 0:
-                repeticiones = cantidad // len(colores)
-                colores_por_unidad = []
-
-                for color in colores:
-                    colores_por_unidad.extend([color] * repeticiones)
-
-            else:
-                errores.append(
-                    f"⚠️ {nombre_real}: pediste {cantidad} unidades "
-                    f"pero indicaste {len(colores)} colores "
-                    f"({', '.join(colores)}). "
-                    "Indícame cuántas unidades quieres de cada color."
-                )
-
-                continue
-
-            # Agrupar las unidades pedidas por talla y color solicitado.
-            pedidos_unidad = {}
-
-            for talla, color in zip(tallas_por_unidad, colores_por_unidad):
-                clave = (talla, color.lower())
-                pedidos_unidad[clave] = pedidos_unidad.get(clave, 0) + 1
-
-            # =========================================================
-            # 19.5 - VALIDAR CADA TALLA Y COLOR EN POSTGRESQL
-            # =========================================================
-
-            for (talla, color_solicitado), cantidad_unidades in pedidos_unidad.items():
+            if not variantes:
 
                 cursor.execute(
                     """
-                    SELECT
-                        v.id_variante,
-                        v.talla,
-                        v.color,
-                        v.stock,
-                        v.precio
+                    SELECT DISTINCT v.talla
                     FROM variantes_producto v
                     JOIN productos p
                         ON p.id_producto = v.id_producto
                     WHERE LOWER(p.nombre) = LOWER(%s)
-                      AND v.talla = %s
+                    ORDER BY v.talla
                     """,
-                    (
-                        nombre_real,
-                        talla
-                    )
+                    (nombre_real,)
                 )
 
-                variantes = cursor.fetchall()
+                tallas = [
+                    fila[0]
+                    for fila in cursor.fetchall()
+                ]
 
-                # =====================================================
-                # 19.6 - TALLA NO EXISTE
-                # =====================================================
-
-                if not variantes:
-
-                    cursor.execute(
-                        """
-                        SELECT v.talla
-                        FROM variantes_producto v
-                        JOIN productos p
-                            ON p.id_producto = v.id_producto
-                        WHERE LOWER(p.nombre) = LOWER(%s)
-                        GROUP BY v.talla
-                        ORDER BY v.talla::integer
-                        """,
-                        (nombre_real,)
-                        )
-
-                    tallas_disponibles = [
-                        fila[0]
-                        for fila in cursor.fetchall()
-                    ]
-
-                    errores.append(
-                        f"⚠️ {nombre_real}: no existe talla {talla}. "
-                        f"Tallas disponibles: {', '.join(tallas_disponibles)}"
-                    )
-
-                    continue
-
-                # =====================================================
-                # 19.7 - PRODUCTO CON COLOR SURTIDO
-                # =====================================================
-
-                variante_surtida = next(
-                    (
-                        variante
-                        for variante in variantes
-                        if str(variante[2]).strip().lower() == "surtido"
-                    ),
-                    None
+                errores.append(
+                    f"⚠️ {nombre_real}: "
+                    f"no existe talla {talla}. "
+                    f"Tallas disponibles: "
+                    f"{', '.join(tallas)}"
                 )
 
-                if variante_surtida:
+                continue
 
-                    (
-                        id_variante,
-                        talla_db,
-                        color_db,
-                        stock_db,
-                        precio_db
-                    ) = variante_surtida
+            # =================================================
+            # 22.4 - PRODUCTOS CON COLOR SURTIDO
+            # =================================================
 
-                    if stock_db < cantidad_unidades:
+            variante_surtida = None
 
-                        errores.append(
-                            f"⚠️ {nombre_real} talla {talla}: "
-                            f"solo quedan {stock_db} unidades."
-                        )
+            for variante in variantes:
 
-                        continue
+                if variante[2].lower() == "surtido":
+                    variante_surtida = variante
+                    break
 
-                    subtotal = float(precio_db) * cantidad_unidades
-                    total += subtotal
+            if variante_surtida:
 
-                    resultado.append(
-                        {
-                            "id_variante": id_variante,
-                            "producto": nombre_real,
-                            "cantidad": cantidad_unidades,
-                            "talla": talla,
-                            "color": "Surtido",
-                            "color_solicitado": (
-                                color_solicitado
-                                if color_solicitado
-                                else "Surtido"
-                            ),
-                            "precio": float(precio_db),
-                            "subtotal": subtotal
-                        }
-                    )
+                (
+                    id_variante,
+                    talla_db,
+                    color_db,
+                    stock_db,
+                    precio_db
+                ) = variante_surtida
 
-                    continue
-
-                # =====================================================
-                # 19.8 - PRODUCTO CON COLORES REALES
-                # =====================================================
-
-                colores_db = {
-                    str(variante[2]).strip().lower(): variante
-                    for variante in variantes
-                }
-
-                if not color_solicitado:
-
-                    disponibles = ", ".join(
-                        str(variante[2])
-                        for variante in variantes
-                    )
+                if stock_db < cantidad:
 
                     errores.append(
-                        f"⚠️ Falta indicar color para {nombre_real} "
-                        f"talla {talla}. Disponibles: {disponibles}"
+                        f"⚠️ {nombre_real} talla {talla}: "
+                        f"solo quedan {stock_db} unidades."
                     )
 
                     continue
 
-                if color_solicitado not in colores_db:
+                subtotal = float(precio_db) * cantidad
+                total += subtotal
+
+                resultado.append(
+                    {
+                        "id_variante": id_variante,
+                        "producto": nombre_real,
+                        "cantidad": cantidad,
+                        "talla": talla,
+                        "color": "Surtido",
+                        "colores_pedidos": colores,
+                        "precio": float(precio_db),
+                        "subtotal": subtotal
+                    }
+                )
+
+                continue
+
+            # =================================================
+            # 22.5 - PRODUCTOS CON COLORES REALES
+            # =================================================
+
+            colores_db = {
+                variante[2].lower(): variante
+                for variante in variantes
+            }
+
+            if not colores:
+
+                errores.append(
+                    f"⚠️ Falta indicar color para "
+                    f"{nombre_real} talla {talla}."
+                )
+
+                continue
+
+            cantidad_por_color = max(
+                1,
+                cantidad // len(colores)
+            )
+
+            for color in colores:
+
+                color_normalizado = color.lower()
+
+                if color_normalizado not in colores_db:
 
                     disponibles = ", ".join(
-                        str(variante[2])
+                        variante[2]
                         for variante in variantes
                     )
 
                     errores.append(
                         f"⚠️ {nombre_real} talla {talla}: "
-                        f"no tenemos color {color_solicitado}. "
+                        f"no tenemos color {color}. "
                         f"Disponibles: {disponibles}"
                     )
 
                     continue
 
-                variante = colores_db[color_solicitado]
+                variante = colores_db[color_normalizado]
 
                 (
                     id_variante,
@@ -1187,7 +1021,7 @@ def validar_pedido_postgresql(pedido_interpretado):
                     precio_db
                 ) = variante
 
-                if stock_db < cantidad_unidades:
+                if stock_db < cantidad_por_color:
 
                     errores.append(
                         f"⚠️ {nombre_real} talla {talla} "
@@ -1197,14 +1031,18 @@ def validar_pedido_postgresql(pedido_interpretado):
 
                     continue
 
-                subtotal = float(precio_db) * cantidad_unidades
+                subtotal = (
+                    float(precio_db)
+                    * cantidad_por_color
+                )
+
                 total += subtotal
 
                 resultado.append(
                     {
                         "id_variante": id_variante,
                         "producto": nombre_real,
-                        "cantidad": cantidad_unidades,
+                        "cantidad": cantidad_por_color,
                         "talla": talla,
                         "color": color_db,
                         "precio": float(precio_db),
@@ -1219,11 +1057,11 @@ def validar_pedido_postgresql(pedido_interpretado):
         }
 
     finally:
+
         cursor.close()
 
-
 # =========================================================
-# 20 - RECIBIR MENSAJES DE WHATSAPP
+# 19 - RECIBIR MENSAJES DE WHATSAPP
 # =========================================================
 
 @app.route("/webhook", methods=["POST"])
@@ -1240,7 +1078,7 @@ def recibir_mensaje():
         valor = datos["entry"][0]["changes"][0]["value"]
 
         # =========================================================
-        # 20.1 - IGNORAR ESTADOS DE ENTREGA
+        # 19.1 - IGNORAR ESTADOS DE ENTREGA
         # =========================================================
         if "messages" not in valor:
             print("El evento no contiene un mensaje de cliente.")
@@ -1249,7 +1087,7 @@ def recibir_mensaje():
         mensaje = valor["messages"][0]
 
         # =========================================================
-        # 20.2 - EVITAR MENSAJES DUPLICADOS
+        # 19.2 - EVITAR MENSAJES DUPLICADOS
         # =========================================================
         mensaje_id = mensaje.get("id")
 
@@ -1261,7 +1099,7 @@ def recibir_mensaje():
             MENSAJES_PROCESADOS.add(mensaje_id)
 
         # =========================================================
-        # 20.3 - IDENTIFICAR CLIENTE - TELEFONO O BSUID
+        # 19.3 - IDENTIFICAR CLIENTE - TELEFONO O BSUID
         # =========================================================
         numero_cliente = mensaje.get("from")
         bsuid_cliente = mensaje.get("from_user")
@@ -1297,7 +1135,7 @@ def recibir_mensaje():
         print("Tipo de mensaje:", tipo_mensaje)
 
         # =========================================================
-        # 20.4 - RESPUESTA A BOTONES INTERACTIVOS
+        # 19.4 - RESPUESTA A BOTONES INTERACTIVOS
         # =========================================================
         if tipo_mensaje == "interactive":
 
@@ -1305,7 +1143,7 @@ def recibir_mensaje():
             tipo_interactivo = interactive.get("type")
 
             # =========================================================
-            # 20.5 - BOTONES DIRECTOS
+            # 19.5 - BOTONES DIRECTOS
             # =========================================================
             if tipo_interactivo == "button_reply":
 
@@ -1344,7 +1182,7 @@ def recibir_mensaje():
                     return "EVENT_RECEIVED", 200
 
                 # =========================================================
-                # 20.5.1 - HACER PEDIDO DESDE BOTON
+                # 19.5.1 - HACER PEDIDO DESDE BOTON
                 # =========================================================
                 if boton_id == "hacer_pedido":
 
@@ -1363,7 +1201,7 @@ def recibir_mensaje():
                     return "EVENT_RECEIVED", 200
 
             # =========================================================
-            # 20.6 - LISTAS INTERACTIVAS
+            # 19.6 - LISTAS INTERACTIVAS
             # =========================================================
             if tipo_interactivo == "list_reply":
 
@@ -1402,7 +1240,7 @@ def recibir_mensaje():
                     return "EVENT_RECEIVED", 200
 
                 # =========================================================
-                # 20.6.1 - HACER PEDIDO DESDE LISTA
+                # 19.6.1 - HACER PEDIDO DESDE LISTA
                 # =========================================================
                 if opcion_id == "hacer_pedido":
 
@@ -1437,14 +1275,14 @@ def recibir_mensaje():
             return "EVENT_RECEIVED", 200
 
         # =========================================================
-        # 20.7 - MENSAJES QUE NO SON TEXTO
+        # 19.7 - MENSAJES QUE NO SON TEXTO
         # =========================================================
         if tipo_mensaje != "text":
             print("Tipo de mensaje todavía no procesado:", tipo_mensaje)
             return "EVENT_RECEIVED", 200
 
         # =========================================================
-        # 20.8 - LEER TEXTO DEL CLIENTE
+        # 19.8 - LEER TEXTO DEL CLIENTE
         # =========================================================
         texto_cliente = (
             mensaje["text"]["body"]
@@ -1456,7 +1294,7 @@ def recibir_mensaje():
 
 
         # =========================================================
-        # 20.9 - DETECTAR SI EL CLIENTE ESTA HACIENDO UN PEDIDO
+        # 19.11 - DETECTAR SI EL CLIENTE ESTA HACIENDO UN PEDIDO
         # =========================================================
 
         estado_actual = ESTADO_CLIENTES.get(numero_cliente)
@@ -1476,7 +1314,7 @@ def recibir_mensaje():
             )
 
             # =========================================================
-            # 20.9.1 - GEMINI TEMPORALMENTE SATURADO
+            # 19.11.1 - GEMINI TEMPORALMENTE SATURADO
             # =========================================================
 
             if pedido_interpretado.get("error_temporal"):
@@ -1494,7 +1332,7 @@ def recibir_mensaje():
                 return "EVENT_RECEIVED", 200
 
             # =========================================================
-            # 20.9.2 - PEDIDO INTERPRETADO CORRECTAMENTE
+            # 19.11.2 - PEDIDO INTERPRETADO CORRECTAMENTE
             # =========================================================
 
             productos = pedido_interpretado.get(
@@ -1517,7 +1355,7 @@ def recibir_mensaje():
                 return "EVENT_RECEIVED", 200
 
             # =========================================================
-            # 20.9.3 - VALIDAR PEDIDO CONTRA POSTGRESQL
+            # 19.11.3 - VALIDAR PEDIDO CONTRA POSTGRESQL
             # =========================================================
 
             validacion = validar_pedido_postgresql(
@@ -1545,7 +1383,7 @@ def recibir_mensaje():
             )
 
             # =========================================================
-            # 20.9.4 - SI HAY ERRORES EN EL PEDIDO
+            # 19.11.4 - SI HAY ERRORES EN EL PEDIDO
             # =========================================================
 
             if errores:
@@ -1571,7 +1409,7 @@ def recibir_mensaje():
                 return "EVENT_RECEIVED", 200
 
             # =========================================================
-            # 20.9.5 - ARMAR COTIZACION
+            # 19.11.5 - ARMAR COTIZACION
             # =========================================================
 
             mensaje_cotizacion = (
@@ -1594,9 +1432,6 @@ def recibir_mensaje():
                 "¿Confirmas tu pedido?"
             )
 
-            # La cotización ya fue armada correctamente.
-            ESTADO_CLIENTES[numero_cliente] = "cotizacion_lista"
-
             enviar_mensaje(
                 numero_cliente,
                 mensaje_cotizacion
@@ -1605,14 +1440,14 @@ def recibir_mensaje():
             return "EVENT_RECEIVED", 200
 
         # =========================================================
-        # 20.10 - CATÁLOGO REAL
+        # 19.9 - CATÁLOGO REAL
         # =========================================================
         if texto_cliente in ["catalogo", "catálogo"]:
             enviar_tarjeta_bienvenida(numero_cliente)
             return "EVENT_RECEIVED", 200
 
         # =========================================================
-        # 20.11 - SALUDO
+        # 19.10 - SALUDO
         # =========================================================
         elif texto_cliente in [
             "hola",
@@ -1630,7 +1465,7 @@ def recibir_mensaje():
             return "EVENT_RECEIVED", 200
 
         # =========================================================
-        # 20.12 - OTROS MENSAJES - GEMINI
+        # 19.12 - OTROS MENSAJES - GEMINI
         # =========================================================
         else:
             respuesta_gemini = responder_con_gemini(texto_cliente)
@@ -1647,7 +1482,7 @@ def recibir_mensaje():
         return "EVENT_RECEIVED", 200
 
 # =========================================================
-# 21 - INICIAR FLASK
+# 20 - INICIAR FLASK
 # =========================================================
 
 if __name__ == "__main__":
@@ -1660,3 +1495,9 @@ if __name__ == "__main__":
         port=5002,
         debug=False
     )
+
+
+
+# meta 
+#3E1XYUHozkyqZzqQDAu7CKbwOzF_6THbSWMuGsk1as7xSHNgD NGROK
+#web https://www.facebook.com/outletvalentinakidsperufrom flask import Flask, request
