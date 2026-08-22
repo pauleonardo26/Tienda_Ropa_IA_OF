@@ -9,7 +9,9 @@ import time
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+
 from conexion import conexion
+from prompts import construir_prompt_pedido
 
 
 # =========================================================
@@ -88,99 +90,48 @@ def generar_con_reintentos(prompt, esquema, max_intentos=3):
 
 def interpretar_pedido(mensaje_cliente):
 
-    prompt = f"""
-Eres un intérprete de pedidos para una tienda de ropa infantil.
-
-Tu única tarea es convertir el mensaje del cliente en datos estructurados.
-
-REGLAS:
-
-- NO calcules precios.
-- NO inventes stock.
-- NO confirmes disponibilidad.
-- NO cambies cantidades.
-- NO agregues productos que el cliente no haya pedido.
-- Conserva todas las tallas indicadas por el cliente.
-- Conserva todos los colores indicados por el cliente.
-- El cliente puede escribir de manera informal.
-- Si menciona varias tallas, sepáralas en una lista.
-- Si menciona varias tallas sin escribir la palabra "talla" cada vez,
-  igualmente debes reconocerlas como tallas.
-- No juntes varias tallas en un solo texto como "4 y 6".
-- No conviertas "4 6 8" en "468".
-- Devuelve cada talla como texto separado: ["4", "6", "8"].
-
-Ejemplo 1:
-
-"casera 2 leggins talla 8 negro y
-2 polos manga corta talla 4 verde y pastel"
-
-Interpretación:
-
-Producto: legging
-Cantidad: 2
-Tallas: ["8"]
-Colores: ["negro"]
-
-Producto: polo manga corta
-Cantidad: 2
-Tallas: ["4"]
-Colores: ["verde", "pastel"]
-
-Ejemplo 2:
-
-"2 polos manga larga pequeño talla 4 y 6 verde y rosado"
-
-Interpretación:
-
-Producto: polo manga larga pequeño
-Cantidad: 2
-Tallas: ["4", "6"]
-Colores: ["verde", "rosado"]
-
-Ejemplo 3:
-
-"3 leggins tallas 4 6 8 negro lila rosado"
-
-Interpretación:
-
-Producto: legging
-Cantidad: 3
-Tallas: ["4", "6", "8"]
-Colores: ["negro", "lila", "rosado"]
-
-MENSAJE DEL CLIENTE:
-
-{mensaje_cliente}
-"""
+    prompt = construir_prompt_pedido(
+        mensaje_cliente
+    )
 
     esquema = {
         "type": "object",
         "properties": {
+
+            "es_pedido": {
+                "type": "boolean"
+            },
+
             "productos": {
                 "type": "array",
                 "items": {
                     "type": "object",
                     "properties": {
+
                         "producto": {
                             "type": "string"
                         },
+
                         "cantidad": {
                             "type": "integer"
                         },
+
                         "tallas": {
                             "type": "array",
                             "items": {
                                 "type": "string"
                             }
                         },
+
                         "colores": {
                             "type": "array",
                             "items": {
                                 "type": "string"
                             }
                         }
+
                     },
+
                     "required": [
                         "producto",
                         "cantidad",
@@ -189,8 +140,11 @@ MENSAJE DEL CLIENTE:
                     ]
                 }
             }
+
         },
+
         "required": [
+            "es_pedido",
             "productos"
         ]
     }
@@ -204,6 +158,7 @@ MENSAJE DEL CLIENTE:
     if datos is None:
 
         return {
+            "es_pedido": False,
             "productos": [],
             "error_temporal": True
         }
@@ -211,6 +166,7 @@ MENSAJE DEL CLIENTE:
     datos["error_temporal"] = False
 
     return datos
+
 
 # =========================================================
 # 22 - CONSULTAR INVENTARIO REAL
@@ -263,7 +219,7 @@ def responder_con_gemini(mensaje_cliente):
                 "En este momento no tenemos "
                 "productos disponibles."
             ),
-            "foto": None
+            "foto": ""
         }
 
     inventario_texto = ""
@@ -316,16 +272,21 @@ MENSAJE DEL CLIENTE:
     esquema = {
         "type": "object",
         "properties": {
+
             "encontrado": {
                 "type": "boolean"
             },
+
             "respuesta": {
                 "type": "string"
             },
+
             "foto": {
                 "type": "string"
             }
+
         },
+
         "required": [
             "encontrado",
             "respuesta",

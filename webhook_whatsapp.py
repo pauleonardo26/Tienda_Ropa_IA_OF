@@ -1458,11 +1458,27 @@ def recibir_mensaje():
         # =========================================================
         # 20.9 - DETECTAR SI EL CLIENTE ESTA HACIENDO UN PEDIDO
         # =========================================================
-
         estado_actual = ESTADO_CLIENTES.get(numero_cliente)
 
-        if estado_actual == "esperando_pedido":
+        # =========================================================
+        # 20.9.0 - SALIR DEL MODO PEDIDO SI PIDE CATALOGO
+        # =========================================================
 
+        if texto_cliente in ["catalogo", "catálogo"]:
+
+            ESTADO_CLIENTES.pop(
+                numero_cliente,
+                None
+            )
+
+            enviar_tarjeta_bienvenida(
+                numero_cliente
+            )
+
+            return "EVENT_RECEIVED", 200
+
+        if estado_actual == "esperando_pedido":
+        
             print("Cliente en modo pedido:", numero_cliente)
             print("Pedido escrito:", texto_cliente)
 
@@ -1496,6 +1512,36 @@ def recibir_mensaje():
             # =========================================================
             # 20.9.2 - PEDIDO INTERPRETADO CORRECTAMENTE
             # =========================================================
+
+
+
+            # =========================================================
+            # 20.9.2.1 - MENSAJE ES CONSULTA Y NO PEDIDO
+            # =========================================================
+
+            es_pedido = pedido_interpretado.get(
+                "es_pedido",
+                True
+            )
+
+            if not es_pedido:
+
+                respuesta_consulta = responder_con_gemini(
+                    texto_cliente
+                )
+
+                texto_respuesta = respuesta_consulta.get(
+                    "respuesta",
+                    "Escribe *catálogo* para conocer nuestros productos."
+                )
+
+                enviar_mensaje(
+                    numero_cliente,
+                    texto_respuesta
+                )
+
+                return "EVENT_RECEIVED", 200
+
 
             productos = pedido_interpretado.get(
                 "productos",
@@ -1570,27 +1616,68 @@ def recibir_mensaje():
 
                 return "EVENT_RECEIVED", 200
 
+                        # =========================================================
+            # 20.9.5 - ARMAR COTIZACION TIPO BOLETA
             # =========================================================
-            # 20.9.5 - ARMAR COTIZACION
-            # =========================================================
+
+            productos_agrupados = {}
+
+            for item in productos_validos:
+
+                nombre_producto = item["producto"]
+
+                if nombre_producto not in productos_agrupados:
+                    productos_agrupados[nombre_producto] = {
+                        "precio": item["precio"],
+                        "cantidad_total": 0,
+                        "subtotal_total": 0,
+                        "variantes": []
+                    }
+
+                productos_agrupados[nombre_producto]["cantidad_total"] += (
+                    item["cantidad"]
+                )
+
+                productos_agrupados[nombre_producto]["subtotal_total"] += (
+                    item["subtotal"]
+                )
+
+                productos_agrupados[nombre_producto]["variantes"].append(
+                    {
+                        "talla": item["talla"],
+                        "color": item["color"],
+                        "cantidad": item["cantidad"]
+                    }
+                )
 
             mensaje_cotizacion = (
                 "🧾 *COTIZACIÓN DE TU PEDIDO*\n\n"
             )
 
-            for item in productos_validos:
+            for nombre_producto, datos_producto in productos_agrupados.items():
 
                 mensaje_cotizacion += (
-                    f"• {item['cantidad']} x "
-                    f"{item['producto']}\n"
-                    f"  Talla: {item['talla']}\n"
-                    f"  Color: {item['color']}\n"
-                    f"  Precio: S/ {item['precio']:.2f}\n"
-                    f"  Subtotal: S/ {item['subtotal']:.2f}\n\n"
+                    f"*{nombre_producto}*\n"
+                )
+
+                for variante in datos_producto["variantes"]:
+
+                    mensaje_cotizacion += (
+                        f"• T{variante['talla']} · "
+                        f"{variante['color']} · "
+                        f"{variante['cantidad']} und.\n"
+                    )
+
+                mensaje_cotizacion += (
+                    f"{datos_producto['cantidad_total']} und. "
+                    f"× S/ {datos_producto['precio']:.2f} "
+                    f"= *S/ {datos_producto['subtotal_total']:.2f}*\n\n"
                 )
 
             mensaje_cotizacion += (
-                f"💰 *TOTAL: S/ {total:.2f}*\n\n"
+                "────────────────\n"
+                f"💰 *TOTAL: S/ {total:.2f}*\n"
+                "────────────────\n\n"
                 "¿Confirmas tu pedido?"
             )
 
@@ -1633,11 +1720,18 @@ def recibir_mensaje():
         # 20.12 - OTROS MENSAJES - GEMINI
         # =========================================================
         else:
+
             respuesta_gemini = responder_con_gemini(texto_cliente)
 
+            texto_respuesta = respuesta_gemini.get(
+            "respuesta",
+            "Escribe *catálogo* para conocer nuestros productos."
+            )
+
             enviar_mensaje(
-                numero_cliente,
-                respuesta_gemini
+            numero_cliente,
+            texto_respuesta
+
             )
 
             return "EVENT_RECEIVED", 200
