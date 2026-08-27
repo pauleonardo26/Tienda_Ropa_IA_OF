@@ -9,12 +9,17 @@ from gemini import (
 
 from dotenv import load_dotenv
 from conexion import conexion
+from pedidos import crear_pedido_completo
 
 from config_whatsapp import (
     WHATSAPP_TOKEN,
     WHATSAPP_PHONE_NUMBER_ID,
     WHATSAPP_VERIFY_TOKEN
 )
+
+# =========================================================
+# 01 - CONFIGURACION GENERAL Y ESTADO DE CLIENTES
+# =========================================================
 
 load_dotenv()
 
@@ -23,11 +28,11 @@ app = Flask(__name__)
 # Evita procesar dos veces el mismo mensaje si Meta reintenta el webhook.
 MENSAJES_PROCESADOS = set()
 
-# =========================================================
-# 01 - ESTADO DE CONVERSACION DE CADA CLIENTE
-# =========================================================
-
+# Guarda el estado temporal de la conversación de cada cliente.
 ESTADO_CLIENTES = {}
+
+# Guarda temporalmente la cotización validada de cada cliente.
+COTIZACIONES_CLIENTES = {}
 
 ACCESS_TOKEN = WHATSAPP_TOKEN
 PHONE_NUMBER_ID = WHATSAPP_PHONE_NUMBER_ID
@@ -84,6 +89,91 @@ def enviar_mensaje(numero_destino, mensaje):
     print("Código texto:", respuesta.status_code)
     print("Respuesta WhatsApp:", respuesta.text)
     respuesta.raise_for_status()
+
+# =========================================================
+# 03.1 - ENVIAR BOTONES CONFIRMAR / CORREGIR / CANCELAR
+# =========================================================
+
+def enviar_botones_confirmacion(numero_destino):
+
+    print(
+        "Enviando botones de confirmación a:",
+        numero_destino
+    )
+
+    url = (
+        f"https://graph.facebook.com/v26.0/"
+        f"{PHONE_NUMBER_ID}/messages"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    destino = obtener_destino_whatsapp(
+        numero_destino
+    )
+
+    datos = {
+        "messaging_product": "whatsapp",
+        **destino,
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {
+                "text": (
+                    "¿Qué deseas hacer con tu pedido?"
+                )
+            },
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "confirmar_pedido",
+                            "title": "✅ CONFIRMAR"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "corregir_pedido",
+                            "title": "✏️ CORREGIR"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "cancelar_pedido",
+                            "title": "❌ CANCELAR"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+
+    respuesta = requests.post(
+        url,
+        headers=headers,
+        json=datos,
+        timeout=30
+    )
+
+    print(
+        "Código botones confirmación:",
+        respuesta.status_code
+    )
+
+    print(
+        "Respuesta botones confirmación:",
+        respuesta.text
+    )
+
+    respuesta.raise_for_status()
+
+
 
 # =========================================================
 # 04 - TARJETA 1 - BIENVENIDA / NIÑO O NIÑA
@@ -795,10 +885,12 @@ def verificar_webhook():
 
 
 # =========================================================
-# 22 - VALIDAR PEDIDO CONTRA POSTGRESQL
+# 19 - VALIDAR PEDIDO CONTRA POSTGRESQL
 # =========================================================
 
 def validar_pedido_postgresql(pedido_interpretado):
+
+    conexion.rollback()
 
     productos_pedido = pedido_interpretado.get("productos", [])
 
@@ -806,9 +898,10 @@ def validar_pedido_postgresql(pedido_interpretado):
     errores = []
     total = 0
 
-    # ---------------------------------------------------------
-    # NOMBRES QUE GEMINI PUEDE USAR -> NOMBRE REAL POSTGRESQL
-    # ---------------------------------------------------------
+
+    # =========================================================
+    # 19.1 - MAPA DE NOMBRES GEMINI -> POSTGRESQL
+    # =========================================================
 
     mapa_productos = {
         "legging": "Leggins Niña",
@@ -825,7 +918,20 @@ def validar_pedido_postgresql(pedido_interpretado):
             "Polo Niña Manga Larga Pequeño",
 
         "polo manga larga grande":
-            "Polo Niña Manga Larga Grande"
+            "Polo Niña Manga Larga Grande",
+
+        # El cliente no necesita decir pequeño/grande.
+        "polo manga corta":
+            "POLO_MANGA_CORTA",
+
+        "polo m/c":
+            "POLO_MANGA_CORTA",
+
+        "polo manga larga":
+            "POLO_MANGA_LARGA",
+
+        "polo m/l":
+            "POLO_MANGA_LARGA"
     }
 
     cursor = conexion.cursor()
@@ -840,178 +946,327 @@ def validar_pedido_postgresql(pedido_interpretado):
                 .lower()
             )
 
-            cantidad = item.get("cantidad", 0)
-            talla = str(item.get("talla", "")).strip()
+            cantidad = int(item.get("cantidad", 0) or 0)
 
-            colores = item.get("colores", [])
+            tallas = [
+                str(talla).strip()
+                for talla in item.get("tallas", [])
+                if str(talla).strip()
+            ]
 
-            nombre_real = mapa_productos.get(
-                producto_gemini
-            )
+            colores = [
+                str(color).strip()
+                for color in item.get("colores", [])
+                if str(color).strip()
+            ]
 
-            # =================================================
-            # 22.1 - PRODUCTO NO RECONOCIDO
-            # =================================================
+            nombre_real = mapa_productos.get(producto_gemini)
 
-            if not nombre_real:
+            # =========================================================
+            # 19.1.1 - DEFINIR POLO PEQUEÑO O GRANDE SEGUN TALLA
+            # =========================================================
 
-                errores.append(
-                    f"❌ No reconocí el producto: "
-                    f"{producto_gemini}"
-                )
+            if nombre_real == "POLO_MANGA_CORTA":
 
-                continue
+                tallas_mc_pequeno = {"4", "6", "8"}
+                tallas_mc_grande = {"10", "12", "14"}
 
-            # =================================================
-            # 22.2 - BUSCAR VARIANTES DEL PRODUCTO Y TALLA
-            # =================================================
+                conjunto_tallas = set(tallas)
 
-            cursor.execute(
-                """
-                SELECT
-                    v.id_variante,
-                    v.talla,
-                    v.color,
-                    v.stock,
-                    v.precio
-                FROM variantes_producto v
-                JOIN productos p
-                    ON p.id_producto = v.id_producto
-                WHERE LOWER(p.nombre) = LOWER(%s)
-                  AND v.talla = %s
-                """,
-                (
-                    nombre_real,
-                    talla
-                )
-            )
+                if conjunto_tallas.issubset(tallas_mc_pequeno):
 
-            variantes = cursor.fetchall()
+                    nombre_real = (
+                        "Polo Niña Manga Corta Pequeño"
+                    )
 
-            # =================================================
-            # 22.3 - TALLA NO EXISTE
-            # =================================================
+                elif conjunto_tallas.issubset(tallas_mc_grande):
 
-            if not variantes:
+                    nombre_real = (
+                        "Polo Niña Manga Corta Grande"
+                    )
 
-                cursor.execute(
-                    """
-                    SELECT DISTINCT v.talla
-                    FROM variantes_producto v
-                    JOIN productos p
-                        ON p.id_producto = v.id_producto
-                    WHERE LOWER(p.nombre) = LOWER(%s)
-                    ORDER BY v.talla
-                    """,
-                    (nombre_real,)
-                )
-
-                tallas = [
-                    fila[0]
-                    for fila in cursor.fetchall()
-                ]
-
-                errores.append(
-                    f"⚠️ {nombre_real}: "
-                    f"no existe talla {talla}. "
-                    f"Tallas disponibles: "
-                    f"{', '.join(tallas)}"
-                )
-
-                continue
-
-            # =================================================
-            # 22.4 - PRODUCTOS CON COLOR SURTIDO
-            # =================================================
-
-            variante_surtida = None
-
-            for variante in variantes:
-
-                if variante[2].lower() == "surtido":
-                    variante_surtida = variante
-                    break
-
-            if variante_surtida:
-
-                (
-                    id_variante,
-                    talla_db,
-                    color_db,
-                    stock_db,
-                    precio_db
-                ) = variante_surtida
-
-                if stock_db < cantidad:
+                else:
 
                     errores.append(
-                        f"⚠️ {nombre_real} talla {talla}: "
-                        f"solo quedan {stock_db} unidades."
+                        "⚠️ En polo manga corta mezclaste tallas "
+                        "pequeñas y grandes. Escríbelas por separado."
                     )
 
                     continue
 
-                subtotal = float(precio_db) * cantidad
-                total += subtotal
 
-                resultado.append(
-                    {
-                        "id_variante": id_variante,
-                        "producto": nombre_real,
-                        "cantidad": cantidad,
-                        "talla": talla,
-                        "color": "Surtido",
-                        "colores_pedidos": colores,
-                        "precio": float(precio_db),
-                        "subtotal": subtotal
-                    }
-                )
+            if nombre_real == "POLO_MANGA_LARGA":
 
-                continue
+                tallas_ml_pequeno = {"4", "6", "8"}
+                tallas_ml_grande = {"10", "12"}
 
-            # =================================================
-            # 22.5 - PRODUCTOS CON COLORES REALES
-            # =================================================
+                conjunto_tallas = set(tallas)
 
-            colores_db = {
-                variante[2].lower(): variante
-                for variante in variantes
-            }
+                if conjunto_tallas.issubset(tallas_ml_pequeno):
 
-            if not colores:
+                    nombre_real = (
+                        "Polo Niña Manga Larga Pequeño"
+                    )
+
+                elif conjunto_tallas.issubset(tallas_ml_grande):
+
+                    nombre_real = (
+                        "Polo Niña Manga Larga Grande"
+                    )
+
+                else:
+
+                    errores.append(
+                        "⚠️ En polo manga larga mezclaste tallas "
+                        "pequeñas y grandes. Escríbelas por separado."
+                    )
+
+                    continue
+
+
+            # =========================================================
+            # 19.2 - VALIDACIONES BASICAS DEL ITEM
+            # =========================================================
+
+            if not nombre_real:
 
                 errores.append(
-                    f"⚠️ Falta indicar color para "
-                    f"{nombre_real} talla {talla}."
+                    f"❌ No reconocí el producto: {producto_gemini}"
                 )
 
                 continue
 
-            cantidad_por_color = max(
-                1,
-                cantidad // len(colores)
-            )
+            if cantidad <= 0:
 
-            for color in colores:
+                errores.append(
+                    f"⚠️ {nombre_real}: la cantidad debe ser mayor a 0."
+                )
 
-                color_normalizado = color.lower()
+                continue
 
-                if color_normalizado not in colores_db:
+            if not tallas:
+
+                errores.append(
+                    f"⚠️ Falta indicar la talla para {nombre_real}."
+                )
+
+                continue
+
+            # =========================================================
+            # 19.3 - DISTRIBUIR CANTIDAD ENTRE TALLAS
+            # =========================================================
+
+            if len(tallas) == 1:
+                tallas_por_unidad = [tallas[0]] * cantidad
+
+            elif len(tallas) == cantidad:
+                tallas_por_unidad = list(tallas)
+
+            elif cantidad % len(tallas) == 0:
+                repeticiones = cantidad // len(tallas)
+                tallas_por_unidad = []
+
+                for talla in tallas:
+                    tallas_por_unidad.extend([talla] * repeticiones)
+
+            else:
+                errores.append(
+                    f"⚠️ {nombre_real}: pediste {cantidad} unidades "
+                    f"pero indicaste {len(tallas)} tallas ({', '.join(tallas)}). "
+                    "Indícame cuántas unidades quieres de cada talla."
+                )
+
+                continue
+
+            # =========================================================
+            # 19.4 - DISTRIBUIR COLORES
+            # =========================================================
+
+            if not colores:
+                colores_por_unidad = [""] * cantidad
+
+            elif len(colores) == 1:
+                colores_por_unidad = [colores[0]] * cantidad
+
+            elif len(colores) == cantidad:
+                colores_por_unidad = list(colores)
+
+            elif cantidad % len(colores) == 0:
+                repeticiones = cantidad // len(colores)
+                colores_por_unidad = []
+
+                for color in colores:
+                    colores_por_unidad.extend([color] * repeticiones)
+
+            else:
+                errores.append(
+                    f"⚠️ {nombre_real}: pediste {cantidad} unidades "
+                    f"pero indicaste {len(colores)} colores "
+                    f"({', '.join(colores)}). "
+                    "Indícame cuántas unidades quieres de cada color."
+                )
+
+                continue
+
+            # Agrupar las unidades pedidas por talla y color solicitado.
+            pedidos_unidad = {}
+
+            for talla, color in zip(tallas_por_unidad, colores_por_unidad):
+                clave = (talla, color.lower())
+                pedidos_unidad[clave] = pedidos_unidad.get(clave, 0) + 1
+
+            # =========================================================
+            # 19.5 - VALIDAR CADA TALLA Y COLOR EN POSTGRESQL
+            # =========================================================
+
+            for (talla, color_solicitado), cantidad_unidades in pedidos_unidad.items():
+
+                cursor.execute(
+                    """
+                    SELECT
+                        v.id_variante,
+                        v.talla,
+                        v.color,
+                        v.stock,
+                        v.precio
+                    FROM variantes_producto v
+                    JOIN productos p
+                        ON p.id_producto = v.id_producto
+                    WHERE LOWER(p.nombre) = LOWER(%s)
+                      AND v.talla = %s
+                    """,
+                    (
+                        nombre_real,
+                        talla
+                    )
+                )
+
+                variantes = cursor.fetchall()
+
+                # =====================================================
+                # 19.6 - TALLA NO EXISTE
+                # =====================================================
+
+                if not variantes:
+
+                    cursor.execute(
+                        """
+                        SELECT v.talla
+                        FROM variantes_producto v
+                        JOIN productos p
+                            ON p.id_producto = v.id_producto
+                        WHERE LOWER(p.nombre) = LOWER(%s)
+                        GROUP BY v.talla
+                        ORDER BY v.talla::integer
+                        """,
+                        (nombre_real,)
+                        )
+
+                    tallas_disponibles = [
+                        fila[0]
+                        for fila in cursor.fetchall()
+                    ]
+
+                    errores.append(
+                        f"⚠️ {nombre_real}: no existe talla {talla}. "
+                        f"Tallas disponibles: {', '.join(tallas_disponibles)}"
+                    )
+
+                    continue
+
+                # =====================================================
+                # 19.7 - PRODUCTO CON COLOR SURTIDO
+                # =====================================================
+
+                variante_surtida = next(
+                    (
+                        variante
+                        for variante in variantes
+                        if str(variante[2]).strip().lower() == "surtido"
+                    ),
+                    None
+                )
+
+                if variante_surtida:
+
+                    (
+                        id_variante,
+                        talla_db,
+                        color_db,
+                        stock_db,
+                        precio_db
+                    ) = variante_surtida
+
+                    if stock_db < cantidad_unidades:
+
+                        errores.append(
+                            f"⚠️ {nombre_real} talla {talla}: "
+                            f"solo quedan {stock_db} unidades."
+                        )
+
+                        continue
+
+                    subtotal = float(precio_db) * cantidad_unidades
+                    total += subtotal
+
+                    resultado.append(
+                        {
+                            "id_variante": id_variante,
+                            "producto": nombre_real,
+                            "cantidad": cantidad_unidades,
+                            "talla": talla,
+                            "color": "Surtido",
+                            "color_solicitado": (
+                                color_solicitado
+                                if color_solicitado
+                                else "Surtido"
+                            ),
+                            "precio": float(precio_db),
+                            "subtotal": subtotal
+                        }
+                    )
+
+                    continue
+
+                # =====================================================
+                # 19.8 - PRODUCTO CON COLORES REALES
+                # =====================================================
+
+                colores_db = {
+                    str(variante[2]).strip().lower(): variante
+                    for variante in variantes
+                }
+
+                if not color_solicitado:
 
                     disponibles = ", ".join(
-                        variante[2]
+                        str(variante[2])
+                        for variante in variantes
+                    )
+
+                    errores.append(
+                        f"⚠️ Falta indicar color para {nombre_real} "
+                        f"talla {talla}. Disponibles: {disponibles}"
+                    )
+
+                    continue
+
+                if color_solicitado not in colores_db:
+
+                    disponibles = ", ".join(
+                        str(variante[2])
                         for variante in variantes
                     )
 
                     errores.append(
                         f"⚠️ {nombre_real} talla {talla}: "
-                        f"no tenemos color {color}. "
+                        f"no tenemos color {color_solicitado}. "
                         f"Disponibles: {disponibles}"
                     )
 
                     continue
 
-                variante = colores_db[color_normalizado]
+                variante = colores_db[color_solicitado]
 
                 (
                     id_variante,
@@ -1021,7 +1276,7 @@ def validar_pedido_postgresql(pedido_interpretado):
                     precio_db
                 ) = variante
 
-                if stock_db < cantidad_por_color:
+                if stock_db < cantidad_unidades:
 
                     errores.append(
                         f"⚠️ {nombre_real} talla {talla} "
@@ -1031,18 +1286,14 @@ def validar_pedido_postgresql(pedido_interpretado):
 
                     continue
 
-                subtotal = (
-                    float(precio_db)
-                    * cantidad_por_color
-                )
-
+                subtotal = float(precio_db) * cantidad_unidades
                 total += subtotal
 
                 resultado.append(
                     {
                         "id_variante": id_variante,
                         "producto": nombre_real,
-                        "cantidad": cantidad_por_color,
+                        "cantidad": cantidad_unidades,
                         "talla": talla,
                         "color": color_db,
                         "precio": float(precio_db),
@@ -1057,11 +1308,11 @@ def validar_pedido_postgresql(pedido_interpretado):
         }
 
     finally:
-
         cursor.close()
 
+
 # =========================================================
-# 19 - RECIBIR MENSAJES DE WHATSAPP
+# 20 - RECIBIR MENSAJES DE WHATSAPP
 # =========================================================
 
 @app.route("/webhook", methods=["POST"])
@@ -1078,7 +1329,7 @@ def recibir_mensaje():
         valor = datos["entry"][0]["changes"][0]["value"]
 
         # =========================================================
-        # 19.1 - IGNORAR ESTADOS DE ENTREGA
+        # 20.1 - IGNORAR ESTADOS DE ENTREGA
         # =========================================================
         if "messages" not in valor:
             print("El evento no contiene un mensaje de cliente.")
@@ -1087,7 +1338,7 @@ def recibir_mensaje():
         mensaje = valor["messages"][0]
 
         # =========================================================
-        # 19.2 - EVITAR MENSAJES DUPLICADOS
+        # 20.2 - EVITAR MENSAJES DUPLICADOS
         # =========================================================
         mensaje_id = mensaje.get("id")
 
@@ -1099,7 +1350,7 @@ def recibir_mensaje():
             MENSAJES_PROCESADOS.add(mensaje_id)
 
         # =========================================================
-        # 19.3 - IDENTIFICAR CLIENTE - TELEFONO O BSUID
+        # 20.3 - IDENTIFICAR CLIENTE - TELEFONO O BSUID
         # =========================================================
         numero_cliente = mensaje.get("from")
         bsuid_cliente = mensaje.get("from_user")
@@ -1135,7 +1386,7 @@ def recibir_mensaje():
         print("Tipo de mensaje:", tipo_mensaje)
 
         # =========================================================
-        # 19.4 - RESPUESTA A BOTONES INTERACTIVOS
+        # 20.4 - RESPUESTA A BOTONES INTERACTIVOS
         # =========================================================
         if tipo_mensaje == "interactive":
 
@@ -1143,7 +1394,7 @@ def recibir_mensaje():
             tipo_interactivo = interactive.get("type")
 
             # =========================================================
-            # 19.5 - BOTONES DIRECTOS
+            # 20.5 - BOTONES DIRECTOS
             # =========================================================
             if tipo_interactivo == "button_reply":
 
@@ -1181,8 +1432,108 @@ def recibir_mensaje():
                     enviar_polo_ml_grande(numero_cliente)
                     return "EVENT_RECEIVED", 200
 
+
                 # =========================================================
-                # 19.5.1 - HACER PEDIDO DESDE BOTON
+                # 20.5.1 - CONFIRMAR PEDIDO
+                # =========================================================
+
+                if boton_id == "confirmar_pedido":
+
+                    cotizacion = COTIZACIONES_CLIENTES.get(
+                        numero_cliente
+                    )
+
+                    if not cotizacion:
+
+                        enviar_mensaje(
+                            numero_cliente,
+                            (
+                                "⚠️ No encontré una cotización activa.\n\n"
+                                "Escribe *CATÁLOGO* para comenzar nuevamente."
+                            )
+                        )
+
+                        return "EVENT_RECEIVED", 200
+
+                    # Evita crear dos veces el mismo pedido
+                    # si el cliente pulsa CONFIRMAR más de una vez.
+                    id_pedido_existente = cotizacion.get(
+                        "id_pedido"
+                    )
+
+                    if id_pedido_existente:
+
+                        enviar_mensaje(
+                            numero_cliente,
+                            (
+                                "✅ Tu pedido ya fue confirmado.\n\n"
+                                f"N.º de pedido: {id_pedido_existente}"
+                            )
+                        )
+
+                        return "EVENT_RECEIVED", 200
+
+                    productos_cotizados = cotizacion.get(
+                        "productos",
+                        []
+                    )
+
+                    total_cotizado = cotizacion.get(
+                        "total",
+                        0
+                    )
+
+                    resultado_pedido = crear_pedido_completo(
+                        productos=productos_cotizados,
+                        total=total_cotizado
+                    )
+
+                    if not resultado_pedido.get("ok"):
+
+                        enviar_mensaje(
+                            numero_cliente,
+                            (
+                                "⚠️ No pude confirmar tu pedido.\n\n"
+                                "Inténtalo nuevamente."
+                            )
+                        )
+
+                        print(
+                            "Error creando pedido:",
+                            resultado_pedido
+                        )
+
+                        return "EVENT_RECEIVED", 200
+
+                    id_pedido = resultado_pedido.get(
+                        "id_pedido"
+                    )
+
+                    COTIZACIONES_CLIENTES[
+                        numero_cliente
+                    ]["id_pedido"] = id_pedido
+
+                    ESTADO_CLIENTES[
+                        numero_cliente
+                    ] = "pedido_confirmado"
+
+                    enviar_mensaje(
+                        numero_cliente,
+                        (
+                            "✅ *PEDIDO CONFIRMADO*\n\n"
+                            f"N.º de pedido: {id_pedido}\n"
+                            f"Total: S/ {total_cotizado:.2f}\n\n"
+                            "Ahora continuaremos con los datos "
+                            "del cliente y el pago."
+                        )
+                    )
+
+                    return "EVENT_RECEIVED", 200
+
+ 
+
+                # =========================================================
+                # 20.5.1 - HACER PEDIDO DESDE BOTON
                 # =========================================================
                 if boton_id == "hacer_pedido":
 
@@ -1201,7 +1552,7 @@ def recibir_mensaje():
                     return "EVENT_RECEIVED", 200
 
             # =========================================================
-            # 19.6 - LISTAS INTERACTIVAS
+            # 20.6 - LISTAS INTERACTIVAS
             # =========================================================
             if tipo_interactivo == "list_reply":
 
@@ -1240,7 +1591,7 @@ def recibir_mensaje():
                     return "EVENT_RECEIVED", 200
 
                 # =========================================================
-                # 19.6.1 - HACER PEDIDO DESDE LISTA
+                # 20.6.1 - HACER PEDIDO DESDE LISTA
                 # =========================================================
                 if opcion_id == "hacer_pedido":
 
@@ -1275,14 +1626,14 @@ def recibir_mensaje():
             return "EVENT_RECEIVED", 200
 
         # =========================================================
-        # 19.7 - MENSAJES QUE NO SON TEXTO
+        # 20.7 - MENSAJES QUE NO SON TEXTO
         # =========================================================
         if tipo_mensaje != "text":
             print("Tipo de mensaje todavía no procesado:", tipo_mensaje)
             return "EVENT_RECEIVED", 200
 
         # =========================================================
-        # 19.8 - LEER TEXTO DEL CLIENTE
+        # 20.8 - LEER TEXTO DEL CLIENTE
         # =========================================================
         texto_cliente = (
             mensaje["text"]["body"]
@@ -1294,13 +1645,29 @@ def recibir_mensaje():
 
 
         # =========================================================
-        # 19.11 - DETECTAR SI EL CLIENTE ESTA HACIENDO UN PEDIDO
+        # 20.9 - DETECTAR SI EL CLIENTE ESTA HACIENDO UN PEDIDO
         # =========================================================
-
         estado_actual = ESTADO_CLIENTES.get(numero_cliente)
 
-        if estado_actual == "esperando_pedido":
+        # =========================================================
+        # 20.9.0 - SALIR DEL MODO PEDIDO SI PIDE CATALOGO
+        # =========================================================
 
+        if texto_cliente in ["catalogo", "catálogo"]:
+
+            ESTADO_CLIENTES.pop(
+                numero_cliente,
+                None
+            )
+
+            enviar_tarjeta_bienvenida(
+                numero_cliente
+            )
+
+            return "EVENT_RECEIVED", 200
+
+        if estado_actual == "esperando_pedido":
+        
             print("Cliente en modo pedido:", numero_cliente)
             print("Pedido escrito:", texto_cliente)
 
@@ -1314,7 +1681,7 @@ def recibir_mensaje():
             )
 
             # =========================================================
-            # 19.11.1 - GEMINI TEMPORALMENTE SATURADO
+            # 20.9.1 - GEMINI TEMPORALMENTE SATURADO
             # =========================================================
 
             if pedido_interpretado.get("error_temporal"):
@@ -1332,8 +1699,38 @@ def recibir_mensaje():
                 return "EVENT_RECEIVED", 200
 
             # =========================================================
-            # 19.11.2 - PEDIDO INTERPRETADO CORRECTAMENTE
+            # 20.9.2 - PEDIDO INTERPRETADO CORRECTAMENTE
             # =========================================================
+
+
+
+            # =========================================================
+            # 20.9.2.1 - MENSAJE ES CONSULTA Y NO PEDIDO
+            # =========================================================
+
+            es_pedido = pedido_interpretado.get(
+                "es_pedido",
+                True
+            )
+
+            if not es_pedido:
+
+                respuesta_consulta = responder_con_gemini(
+                    texto_cliente
+                )
+
+                texto_respuesta = respuesta_consulta.get(
+                    "respuesta",
+                    "Escribe *catálogo* para conocer nuestros productos."
+                )
+
+                enviar_mensaje(
+                    numero_cliente,
+                    texto_respuesta
+                )
+
+                return "EVENT_RECEIVED", 200
+
 
             productos = pedido_interpretado.get(
                 "productos",
@@ -1355,7 +1752,7 @@ def recibir_mensaje():
                 return "EVENT_RECEIVED", 200
 
             # =========================================================
-            # 19.11.3 - VALIDAR PEDIDO CONTRA POSTGRESQL
+            # 20.9.3 - VALIDAR PEDIDO CONTRA POSTGRESQL
             # =========================================================
 
             validacion = validar_pedido_postgresql(
@@ -1383,7 +1780,7 @@ def recibir_mensaje():
             )
 
             # =========================================================
-            # 19.11.4 - SI HAY ERRORES EN EL PEDIDO
+            # 20.9.4 - SI HAY ERRORES EN EL PEDIDO
             # =========================================================
 
             if errores:
@@ -1409,28 +1806,83 @@ def recibir_mensaje():
                 return "EVENT_RECEIVED", 200
 
             # =========================================================
-            # 19.11.5 - ARMAR COTIZACION
+            # 20.9.5 - ARMAR COTIZACION TIPO BOLETA
             # =========================================================
+
+            productos_agrupados = {}
+
+            for item in productos_validos:
+
+                nombre_producto = item["producto"]
+
+                if nombre_producto not in productos_agrupados:
+                    productos_agrupados[nombre_producto] = {
+                        "precio": item["precio"],
+                        "cantidad_total": 0,
+                        "subtotal_total": 0,
+                        "variantes": []
+                    }
+
+                productos_agrupados[nombre_producto]["cantidad_total"] += (
+                    item["cantidad"]
+                )
+
+                productos_agrupados[nombre_producto]["subtotal_total"] += (
+                    item["subtotal"]
+                )
+
+                productos_agrupados[nombre_producto]["variantes"].append(
+                    {
+                        "talla": item["talla"],
+                        "color": item["color"],
+                        "cantidad": item["cantidad"]
+                    }
+                )
 
             mensaje_cotizacion = (
                 "🧾 *COTIZACIÓN DE TU PEDIDO*\n\n"
             )
 
-            for item in productos_validos:
+            for nombre_producto, datos_producto in productos_agrupados.items():
 
                 mensaje_cotizacion += (
-                    f"• {item['cantidad']} x "
-                    f"{item['producto']}\n"
-                    f"  Talla: {item['talla']}\n"
-                    f"  Color: {item['color']}\n"
-                    f"  Precio: S/ {item['precio']:.2f}\n"
-                    f"  Subtotal: S/ {item['subtotal']:.2f}\n\n"
+                    f"*{nombre_producto}*\n"
+                )
+
+                for variante in datos_producto["variantes"]:
+
+                    mensaje_cotizacion += (
+                        f"• T{variante['talla']} · "
+                        f"{variante['color']} · "
+                        f"{variante['cantidad']} und.\n"
+                    )
+
+                mensaje_cotizacion += (
+                    f"{datos_producto['cantidad_total']} und. "
+                    f"× S/ {datos_producto['precio']:.2f} "
+                    f"= *S/ {datos_producto['subtotal_total']:.2f}*\n\n"
                 )
 
             mensaje_cotizacion += (
-                f"💰 *TOTAL: S/ {total:.2f}*\n\n"
+                "────────────────\n"
+                f"💰 *TOTAL: S/ {total:.2f}*\n"
+                "────────────────\n\n"
                 "¿Confirmas tu pedido?"
             )
+
+            # La cotización ya fue armada correctamente.
+
+            # =========================================================
+            # 20.9.6 - GUARDAR COTIZACION TEMPORAL DEL CLIENTE
+            # =========================================================
+
+            COTIZACIONES_CLIENTES[numero_cliente] = {
+            "productos": productos_validos,
+            "total": total
+
+            }
+
+            ESTADO_CLIENTES[numero_cliente] = "cotizacion_lista"
 
             enviar_mensaje(
                 numero_cliente,
@@ -1440,14 +1892,14 @@ def recibir_mensaje():
             return "EVENT_RECEIVED", 200
 
         # =========================================================
-        # 19.9 - CATÁLOGO REAL
+        # 20.10 - CATÁLOGO REAL
         # =========================================================
         if texto_cliente in ["catalogo", "catálogo"]:
             enviar_tarjeta_bienvenida(numero_cliente)
             return "EVENT_RECEIVED", 200
 
         # =========================================================
-        # 19.10 - SALUDO
+        # 20.11 - SALUDO
         # =========================================================
         elif texto_cliente in [
             "hola",
@@ -1465,14 +1917,21 @@ def recibir_mensaje():
             return "EVENT_RECEIVED", 200
 
         # =========================================================
-        # 19.12 - OTROS MENSAJES - GEMINI
+        # 20.12 - OTROS MENSAJES - GEMINI
         # =========================================================
         else:
+
             respuesta_gemini = responder_con_gemini(texto_cliente)
 
+            texto_respuesta = respuesta_gemini.get(
+            "respuesta",
+            "Escribe *catálogo* para conocer nuestros productos."
+            )
+
             enviar_mensaje(
-                numero_cliente,
-                respuesta_gemini
+            numero_cliente,
+            texto_respuesta
+
             )
 
             return "EVENT_RECEIVED", 200
@@ -1482,7 +1941,7 @@ def recibir_mensaje():
         return "EVENT_RECEIVED", 200
 
 # =========================================================
-# 20 - INICIAR FLASK
+# 21 - INICIAR FLASK
 # =========================================================
 
 if __name__ == "__main__":
@@ -1495,6 +1954,7 @@ if __name__ == "__main__":
         port=5002,
         debug=False
     )
+
 
 
 

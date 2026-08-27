@@ -9,6 +9,7 @@ from gemini import (
 
 from dotenv import load_dotenv
 from conexion import conexion
+from pedidos import crear_pedido_completo
 
 from config_whatsapp import (
     WHATSAPP_TOKEN,
@@ -30,13 +31,16 @@ MENSAJES_PROCESADOS = set()
 # Guarda el estado temporal de la conversación de cada cliente.
 ESTADO_CLIENTES = {}
 
+# Guarda temporalmente la cotización validada de cada cliente.
+COTIZACIONES_CLIENTES = {}
+
 ACCESS_TOKEN = WHATSAPP_TOKEN
 PHONE_NUMBER_ID = WHATSAPP_PHONE_NUMBER_ID
 VERIFY_TOKEN = WHATSAPP_VERIFY_TOKEN
 
 
 # =========================================================
-# 02 - DESTINATARIO WHATSAPP - TELEFONO O BSUID
+# 02 - DESTINATARIO WHATSAPP - TELEFONO O BSUID [MOVER A whatsapp_utils.py]
 # =========================================================
 
 def obtener_destino_whatsapp(numero_destino):
@@ -49,7 +53,7 @@ def obtener_destino_whatsapp(numero_destino):
 
 
 # =========================================================
-# 03 - ENVIAR MENSAJE DE TEXTO
+# 03 - ENVIAR MENSAJE DE TEXTO [MOVER A whatsapp_utils.py]
 # =========================================================
 
 def enviar_mensaje(numero_destino, mensaje):
@@ -87,7 +91,92 @@ def enviar_mensaje(numero_destino, mensaje):
     respuesta.raise_for_status()
 
 # =========================================================
-# 04 - TARJETA 1 - BIENVENIDA / NIÑO O NIÑA
+# 03.1 - ENVIAR BOTONES CONFIRMAR / CORREGIR / CANCELAR [MOVER A whatsapp_utils.py]
+# =========================================================
+
+def enviar_botones_confirmacion(numero_destino):
+
+    print(
+        "Enviando botones de confirmación a:",
+        numero_destino
+    )
+
+    url = (
+        f"https://graph.facebook.com/v26.0/"
+        f"{PHONE_NUMBER_ID}/messages"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    destino = obtener_destino_whatsapp(
+        numero_destino
+    )
+
+    datos = {
+        "messaging_product": "whatsapp",
+        **destino,
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {
+                "text": (
+                    "¿Qué deseas hacer con tu pedido?"
+                )
+            },
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "confirmar_pedido",
+                            "title": "✅ CONFIRMAR"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "corregir_pedido",
+                            "title": "✏️ CORREGIR"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "cancelar_pedido",
+                            "title": "❌ CANCELAR"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+
+    respuesta = requests.post(
+        url,
+        headers=headers,
+        json=datos,
+        timeout=30
+    )
+
+    print(
+        "Código botones confirmación:",
+        respuesta.status_code
+    )
+
+    print(
+        "Respuesta botones confirmación:",
+        respuesta.text
+    )
+
+    respuesta.raise_for_status()
+
+
+
+# =========================================================
+# 04 - TARJETA 1 - BIENVENIDA / NIÑO O NIÑA [MOVER A catalogo.py]
 # =========================================================
 
 def enviar_tarjeta_bienvenida(numero_destino):
@@ -159,7 +248,7 @@ def enviar_tarjeta_bienvenida(numero_destino):
     respuesta.raise_for_status()
 
 # =========================================================
-# 05 - TARJETA 2 - ROPA PARA NIÑA
+# 05 - TARJETA 2 - ROPA PARA NIÑA [MOVER A catalogo.py]
 # =========================================================
 
 def enviar_tarjeta_nina(numero_destino):
@@ -262,7 +351,7 @@ def enviar_tarjeta_nina(numero_destino):
     respuesta.raise_for_status()
 
 # =========================================================
-# 06 - SUBMENÚ - ROPA PARA NIÑO
+# 06 - SUBMENÚ - ROPA PARA NIÑO [MOVER A catalogo.py]
 # =========================================================
 
 def enviar_tarjeta_nino(numero_destino):
@@ -352,7 +441,7 @@ def enviar_tarjeta_nino(numero_destino):
     respuesta.raise_for_status()
 
 # =========================================================
-# 07 - FUNCIÓN BASE - TARJETA DE PRODUCTO NIÑA
+# 07 - FUNCIÓN BASE - TARJETA DE PRODUCTO NIÑA [MOVER A catalogo.py]
 # =========================================================
 
 def enviar_tarjeta_producto_nina(numero_destino, nombre_producto, imagen_url, opciones):
@@ -443,7 +532,7 @@ def enviar_tarjeta_producto_nina(numero_destino, nombre_producto, imagen_url, op
 
 
 # =========================================================
-# 08 - TARJETA 3 - LEGGING NIÑA
+# 08 - TARJETA 3 - LEGGING NIÑA [MOVER A catalogo.py]
 # =========================================================
 
 def enviar_tarjeta_legging(numero_destino):
@@ -471,7 +560,7 @@ def enviar_tarjeta_legging(numero_destino):
 
 
 # =========================================================
-# 09 - TARJETA 3 - POLO NIÑA MANGA CORTA PEQUEÑO
+# 09 - TARJETA 3 - POLO NIÑA MANGA CORTA PEQUEÑO [MOVER A catalogo.py]
 # =========================================================
 
 def enviar_polo_mc_pequeno(numero_destino):
@@ -499,7 +588,7 @@ def enviar_polo_mc_pequeno(numero_destino):
 
 
 # =========================================================
-# 10 - TARJETA 3 - POLO NIÑA MANGA CORTA GRANDE
+# 10 - TARJETA 3 - POLO NIÑA MANGA CORTA GRANDE [MOVER A catalogo.py]
 # =========================================================
 
 def enviar_polo_mc_grande(numero_destino):
@@ -527,7 +616,7 @@ def enviar_polo_mc_grande(numero_destino):
 
 
 # =========================================================
-# 11 - TARJETA 3 - POLO NIÑA MANGA LARGA PEQUEÑO
+# 11 - TARJETA 3 - POLO NIÑA MANGA LARGA PEQUEÑO [MOVER A catalogo.py]
 # =========================================================
 
 def enviar_polo_ml_pequeno(numero_destino):
@@ -555,7 +644,7 @@ def enviar_polo_ml_pequeno(numero_destino):
 
 
 # =========================================================
-# 12 - TARJETA 3 - POLO NIÑA MANGA LARGA GRANDE
+# 12 - TARJETA 3 - POLO NIÑA MANGA LARGA GRANDE [MOVER A catalogo.py]
 # =========================================================
 
 def enviar_polo_ml_grande(numero_destino):
@@ -582,7 +671,7 @@ def enviar_polo_ml_grande(numero_destino):
     )
 
 # =========================================================
-# 13 - CONSULTAR PRODUCTO REAL EN POSTGRESQL
+# 13 - CONSULTAR PRODUCTO REAL EN POSTGRESQL [MOVER A catalogo.py]
 # =========================================================
 
 def obtener_producto_catalogo():
@@ -617,7 +706,7 @@ def obtener_producto_catalogo():
 
 
 # =========================================================
-# 14 - DESCARGAR FOTO DESDE CLOUDFLARE R2
+# 14 - DESCARGAR FOTO DESDE CLOUDFLARE R2 [MOVER A r2.py]
 # =========================================================
 
 def obtener_foto_r2(ruta_foto):
@@ -638,7 +727,7 @@ def obtener_foto_r2(ruta_foto):
 
 
 # =========================================================
-# 15 - SUBIR FOTO A META
+# 15 - SUBIR FOTO A META [MOVER A whatsapp_utils.py]
 # =========================================================
 
 def subir_foto_meta(foto_bytes):
@@ -682,7 +771,7 @@ def subir_foto_meta(foto_bytes):
 
 
 # =========================================================
-# 16 - ENVIAR FOTO POR WHATSAPP
+# 16 - ENVIAR FOTO POR WHATSAPP [MOVER A whatsapp_utils.py]
 # =========================================================
 
 def enviar_imagen(numero_destino, media_id, texto):
@@ -796,7 +885,7 @@ def verificar_webhook():
 
 
 # =========================================================
-# 19 - VALIDAR PEDIDO CONTRA POSTGRESQL
+# 19 - VALIDAR PEDIDO CONTRA POSTGRESQL [MOVER A pedidos.py]
 # =========================================================
 
 def validar_pedido_postgresql(pedido_interpretado):
@@ -1343,10 +1432,176 @@ def recibir_mensaje():
                     enviar_polo_ml_grande(numero_cliente)
                     return "EVENT_RECEIVED", 200
 
+
                 # =========================================================
-                # 20.5.1 - HACER PEDIDO DESDE BOTON
+                # 20.5.1 - CONFIRMAR PEDIDO
+                # =========================================================
+
+                if boton_id == "confirmar_pedido":
+
+                    cotizacion = COTIZACIONES_CLIENTES.get(
+                        numero_cliente
+                    )
+
+                    if not cotizacion:
+
+                        enviar_mensaje(
+                            numero_cliente,
+                            (
+                                "⚠️ No encontré una cotización activa.\n\n"
+                                "Escribe *CATÁLOGO* para comenzar nuevamente."
+                            )
+                        )
+
+                        return "EVENT_RECEIVED", 200
+
+                    # Evita crear dos veces el mismo pedido
+                    # si el cliente pulsa CONFIRMAR más de una vez.
+                    id_pedido_existente = cotizacion.get(
+                        "id_pedido"
+                    )
+
+                    if id_pedido_existente:
+
+                        enviar_mensaje(
+                            numero_cliente,
+                            (
+                                "✅ Tu pedido ya fue confirmado.\n\n"
+                                f"N.º de pedido: {id_pedido_existente}"
+                            )
+                        )
+
+                        return "EVENT_RECEIVED", 200
+
+                    productos_cotizados = cotizacion.get(
+                        "productos",
+                        []
+                    )
+
+                    total_cotizado = cotizacion.get(
+                        "total",
+                        0
+                    )
+
+                    resultado_pedido = crear_pedido_completo(
+                        productos=productos_cotizados,
+                        total=total_cotizado
+                    )
+
+                    if not resultado_pedido.get("ok"):
+
+                        enviar_mensaje(
+                            numero_cliente,
+                            (
+                                "⚠️ No pude confirmar tu pedido.\n\n"
+                                "Inténtalo nuevamente."
+                            )
+                        )
+
+                        print(
+                            "Error creando pedido:",
+                            resultado_pedido
+                        )
+
+                        return "EVENT_RECEIVED", 200
+
+                    id_pedido = resultado_pedido.get(
+                        "id_pedido"
+                    )
+
+                    COTIZACIONES_CLIENTES[
+                        numero_cliente
+                    ]["id_pedido"] = id_pedido
+
+                    ESTADO_CLIENTES[
+                        numero_cliente
+                    ] = "pedido_confirmado"
+
+                    enviar_mensaje(
+                        numero_cliente,
+                        (
+                            "✅ *PEDIDO CONFIRMADO*\n\n"
+                            f"N.º de pedido: {id_pedido}\n"
+                            f"Total: S/ {total_cotizado:.2f}\n\n"
+                            "Ahora continuaremos con los datos "
+                            "del cliente y el pago."
+                        )
+                    )
+
+                    return "EVENT_RECEIVED", 200
+
+ 
+
+                # =========================================================
+                # 20.5.2 - CORREGIR PEDIDO
+                # =========================================================
+
+                if boton_id == "corregir_pedido":
+
+                    # Borra la cotización anterior para evitar usar datos viejos.
+                    COTIZACIONES_CLIENTES.pop(
+                        numero_cliente,
+                        None
+                    )
+
+                    ESTADO_CLIENTES[
+                        numero_cliente
+                    ] = "esperando_pedido"
+
+                    enviar_mensaje(
+                        numero_cliente,
+                        (
+                            "✏️ *CORREGIR PEDIDO*\n\n"
+                            "Escribe nuevamente tu pedido completo "
+                            "con las correcciones.\n\n"
+                            "Ejemplo:\n"
+                            "2 leggings talla 6 negro y "
+                            "1 polo manga corta talla 8."
+                        )
+                    )
+
+                    return "EVENT_RECEIVED", 200
+
+                # =========================================================
+                # 20.5.3 - CANCELAR PEDIDO
+                # =========================================================
+
+                if boton_id == "cancelar_pedido":
+
+                    COTIZACIONES_CLIENTES.pop(
+                        numero_cliente,
+                        None
+                    )
+
+                    ESTADO_CLIENTES.pop(
+                        numero_cliente,
+                        None
+                    )
+
+                    enviar_mensaje(
+                        numero_cliente,
+                        (
+                            "❌ *PEDIDO CANCELADO*\n\n"
+                            "No se registró ninguna compra.\n"
+                            "Puedes volver a empezar cuando desees."
+                        )
+                    )
+
+                    enviar_tarjeta_bienvenida(
+                        numero_cliente
+                    )
+
+                    return "EVENT_RECEIVED", 200
+
+                # =========================================================
+                # 20.5.4 - HACER PEDIDO DESDE BOTON
                 # =========================================================
                 if boton_id == "hacer_pedido":
+
+                    COTIZACIONES_CLIENTES.pop(
+                        numero_cliente,
+                        None
+                    )
 
                     ESTADO_CLIENTES[numero_cliente] = "esperando_pedido"
 
@@ -1405,6 +1660,11 @@ def recibir_mensaje():
                 # 20.6.1 - HACER PEDIDO DESDE LISTA
                 # =========================================================
                 if opcion_id == "hacer_pedido":
+
+                    COTIZACIONES_CLIENTES.pop(
+                        numero_cliente,
+                        None
+                    )
 
                     ESTADO_CLIENTES[numero_cliente] = "esperando_pedido"
 
@@ -1471,6 +1731,11 @@ def recibir_mensaje():
                 None
             )
 
+            COTIZACIONES_CLIENTES.pop(
+                numero_cliente,
+                None
+            )
+
             enviar_tarjeta_bienvenida(
                 numero_cliente
             )
@@ -1481,6 +1746,15 @@ def recibir_mensaje():
         
             print("Cliente en modo pedido:", numero_cliente)
             print("Pedido escrito:", texto_cliente)
+
+            # =========================================================
+            # 20.9.0.1 - AVISO MIENTRAS SE PROCESA EL MENSAJE
+            # =========================================================
+
+            enviar_mensaje(
+                numero_cliente,
+                "⏳ Un momento, estoy revisando tu pedido..."
+            )
 
             pedido_interpretado = interpretar_pedido(
                 texto_cliente
@@ -1616,7 +1890,7 @@ def recibir_mensaje():
 
                 return "EVENT_RECEIVED", 200
 
-                        # =========================================================
+            # =========================================================
             # 20.9.5 - ARMAR COTIZACION TIPO BOLETA
             # =========================================================
 
@@ -1682,11 +1956,25 @@ def recibir_mensaje():
             )
 
             # La cotización ya fue armada correctamente.
+
+            # =========================================================
+            # 20.9.6 - GUARDAR COTIZACION TEMPORAL DEL CLIENTE
+            # =========================================================
+
+            COTIZACIONES_CLIENTES[numero_cliente] = {
+                "productos": productos_validos,
+                "total": total
+            }
+
             ESTADO_CLIENTES[numero_cliente] = "cotizacion_lista"
 
             enviar_mensaje(
                 numero_cliente,
                 mensaje_cotizacion
+            )
+
+            enviar_botones_confirmacion(
+                numero_cliente
             )
 
             return "EVENT_RECEIVED", 200
@@ -1721,17 +2009,18 @@ def recibir_mensaje():
         # =========================================================
         else:
 
-            respuesta_gemini = responder_con_gemini(texto_cliente)
+            respuesta_gemini = responder_con_gemini(
+                texto_cliente
+            )
 
             texto_respuesta = respuesta_gemini.get(
-            "respuesta",
-            "Escribe *catálogo* para conocer nuestros productos."
+                "respuesta",
+                "Escribe *catálogo* para conocer nuestros productos."
             )
 
             enviar_mensaje(
-            numero_cliente,
-            texto_respuesta
-
+                numero_cliente,
+                texto_respuesta
             )
 
             return "EVENT_RECEIVED", 200
