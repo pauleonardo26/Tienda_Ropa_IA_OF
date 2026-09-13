@@ -1356,7 +1356,8 @@ def recibir_mensaje():
         # =========================================================
         # 20.3 - IDENTIFICAR CLIENTE - TELEFONO O BSUID
         # =========================================================
-        numero_cliente = mensaje.get("from")
+        numero_cliente = mensaje.get("from") or mensaje.get("from_user_id")
+        #numero_cliente = mensaje.get("from")
         bsuid_cliente = mensaje.get("from_user")
         contactos = valor.get("contacts", [])
 
