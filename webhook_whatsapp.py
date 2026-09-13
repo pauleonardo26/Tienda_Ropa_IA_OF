@@ -44,11 +44,15 @@ VERIFY_TOKEN = WHATSAPP_VERIFY_TOKEN
 # =========================================================
 
 def obtener_destino_whatsapp(numero_destino):
-
-    if str(numero_destino).startswith("PE."):
-        return {"recipient": numero_destino}
-
     return {"to": numero_destino}
+
+
+#def obtener_destino_whatsapp(numero_destino):
+
+    #if str(numero_destino).startswith("PE."):
+        #return {"recipient": numero_destino}
+
+    #return {"to": numero_destino}
 
 
 
