@@ -1495,98 +1495,31 @@ def recibir_mensaje():
                 # 20.5.1 - CONFIRMAR PEDIDO
                 # =========================================================
 
+                # =========================================================
+                # 16.1 - TARJETA DE PAGO DEL PEDIDO
+                # ===≈=====================================================
+
+                
                 if boton_id == "confirmar_pedido":
+                    cotizacion = COTIZACIONES_CLIENTES.get(numero_cliente)
 
-                    cotizacion = COTIZACIONES_CLIENTES.get(
-                        numero_cliente
-                    )
-
-                    if not cotizacion:
-
-                        enviar_mensaje(
-                            numero_cliente,
-                            (
-                                "⚠️ No encontré una cotización activa.\n\n"
-                                "Escribe *CATÁLOGO* para comenzar nuevamente."
-                            )
-                        )
-
-                        return "EVENT_RECEIVED", 200
-
-                    # Evita crear dos veces el mismo pedido
-                    # si el cliente pulsa CONFIRMAR más de una vez.
-                    id_pedido_existente = cotizacion.get(
-                        "id_pedido"
-                    )
-
-                    if id_pedido_existente:
-
-                        enviar_mensaje(
-                            numero_cliente,
-                            (
-                                "✅ Tu pedido ya fue confirmado.\n\n"
-                                f"N.º de pedido: {id_pedido_existente}"
-                            )
-                        )
-
-                        return "EVENT_RECEIVED", 200
-
-                    productos_cotizados = cotizacion.get(
-                        "productos",
-                        []
-                    )
-
-                    total_cotizado = cotizacion.get(
-                        "total",
-                        0
-                    )
-
-                    resultado_pedido = crear_pedido_completo(
-                        productos=productos_cotizados,
-                        total=total_cotizado
-                    )
-
-                    if not resultado_pedido.get("ok"):
-
-                        enviar_mensaje(
-                            numero_cliente,
-                            (
-                                "⚠️ No pude confirmar tu pedido.\n\n"
-                                "Inténtalo nuevamente."
-                            )
-                        )
-
-                        print(
-                            "Error creando pedido:",
-                            resultado_pedido
-                        )
-
-                        return "EVENT_RECEIVED", 200
-
-                    id_pedido = resultado_pedido.get(
-                        "id_pedido"
-                    )
-
-                    COTIZACIONES_CLIENTES[
-                        numero_cliente
-                    ]["id_pedido"] = id_pedido
-
-                    ESTADO_CLIENTES[
-                        numero_cliente
-                    ] = "pedido_confirmado"
-
+                if not cotizacion:
                     enviar_mensaje(
                         numero_cliente,
-                        (
-                            "✅ *PEDIDO CONFIRMADO*\n\n"
-                            f"N.º de pedido: {id_pedido}\n"
-                            f"Total: S/ {total_cotizado:.2f}\n\n"
-                            "Ahora continuaremos con los datos "
-                            "del cliente y el pago."
-                        )
-                    )
+                              "❌ No encontré una cotización activa para este pedido."
+        )
+        return "EVENT_RECEIVED", 200
 
-                    return "EVENT_RECEIVED", 200
+    # Obtener total de la cotización existente
+    total_cotizado = cotizacion.get("total", 0)
+
+    # Guardamos que el pedido fue confirmado
+    cotizacion["confirmado"] = True
+
+    # Enviar inmediatamente la tarjeta de pago
+                enviar_tarjeta_pago_pedido(numero_cliente)
+
+    return "EVENT_RECEIVED", 200
 
  
 
