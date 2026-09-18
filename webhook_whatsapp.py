@@ -1506,12 +1506,12 @@ def recibir_mensaje():
                        return "EVENT_RECEIVED", 200
 
     # Obtener total de la cotización existente
-                    total_cotizado =
-                 cotizacion.get("total", 0)
+                total_cotizado =
+                   cotizacion.get("total", 0)
 
     # Guardamos que el pedido fue confirmado
-              cotizacion["confirmado"] =
-                True
+                cotizacion["confirmado"] =
+                   True
 
     # Enviar inmediatamente la tarjeta de pago
                 enviar_tarjeta_pago_pedido(numero_cliente)
