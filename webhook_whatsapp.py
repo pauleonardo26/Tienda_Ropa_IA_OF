@@ -1503,8 +1503,7 @@ def recibir_mensaje():
                            numero_cliente,
             "❌ No encontré una cotización activa para este pedido."
                        )
-                       return "EVENT_RECEIVED", 
-                        200
+                       return "EVENT_RECEIVED", 200
 
     # Obtener total de la cotización existente
                     total_cotizado =
