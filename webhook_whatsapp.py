@@ -828,6 +828,44 @@ def enviar_imagen(numero_destino, media_id, texto):
     print("Respuesta WhatsApp:", respuesta.text)
     respuesta.raise_for_status()
 
+
+# =========================================================
+# 16.1 - TARJETA DE PAGO DEL PEDIDO
+# =========================================================
+
+def enviar_tarjeta_pago_pedido(numero_destino):
+
+    url = f"https://graph.facebook.com/v26.0/{PHONE_NUMBER_ID}/messages"
+
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    destino = obtener_destino_whatsapp(numero_destino)
+
+    datos = {
+        "messaging_product": "whatsapp",
+        **destino,
+        "type": "image",
+        "image": {
+            "link": "AQUI_PONDREMOS_LA_URL_DE_LA_IMAGEN"
+        }
+    }
+
+    respuesta = requests.post(
+        url,
+        headers=headers,
+        json=datos
+    )
+
+    print("Tarjeta de pago:", respuesta.status_code)
+    print(respuesta.text)
+
+    respuesta.raise_for_status()
+
+
+
 # =========================================================
 # 17 - POLÍTICA DE PRIVACIDAD
 # =========================================================
