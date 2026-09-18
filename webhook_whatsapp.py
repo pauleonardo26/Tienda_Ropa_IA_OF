@@ -1,4 +1,4 @@
-from flask import Flask, request
+0from flask import Flask, request
 import requests
 import os
 import boto3
@@ -1504,7 +1504,7 @@ def recibir_mensaje():
             "❌ No encontré una cotización activa para este pedido."
                        )
                        return "EVENT_RECEIVED", 
-                 200
+                        200
 
     # Obtener total de la cotización existente
                     total_cotizado =
