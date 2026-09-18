@@ -1499,12 +1499,12 @@ if boton_id == "confirmar_pedido":
 
     cotizacion = COTIZACIONES_CLIENTES.get(numero_cliente)
 
-    if not cotizacion:
+if not cotizacion:
         enviar_mensaje(
             numero_cliente,
             "❌ No encontré una cotización activa para este pedido."
         )
-        return "EVENT_RECEIVED", 200
+    return "EVENT_RECEIVED", 200
 
     # Obtener total de la cotización existente
     total_cotizado = cotizacion.get("total", 0)
@@ -1513,9 +1513,9 @@ if boton_id == "confirmar_pedido":
     cotizacion["confirmado"] = True
 
     # Enviar inmediatamente la tarjeta de pago
-    enviar_tarjeta_pago_pedido(numero_cliente)
+enviar_tarjeta_pago_pedido(numero_cliente)
 
-    return "EVENT_RECEIVED", 200
+return "EVENT_RECEIVED", 200
         
  
 
