@@ -849,8 +849,8 @@ def enviar_tarjeta_pago_pedido(numero_destino):
         **destino,
         "type": "image",
         "image": {
-            "link": "AQUI_PONDREMOS_LA_URL_DE_LA_IMAGEN"
-        }
+            "link": "https://pub-9aa04db1bd594751a5b8fb2654da15fd.r2.dev/file_00000000b484820e9b52ed1bc4943655.png" 
+            }
     }
 
     respuesta = requests.post(
