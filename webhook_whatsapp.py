@@ -1495,27 +1495,28 @@ def recibir_mensaje():
 # 20.5.1 - CONFIRMAR PEDIDO
 # =========================≈===============================
 
-if boton_id == "confirmar_pedido":
-
-    cotizacion = COTIZACIONES_CLIENTES.get(numero_cliente)
-
-if not cotizacion:
-        enviar_mensaje(
-            numero_cliente,
+                if boton_id == "confirmar_pedido":
+                    cotizacion = COTIZACIONES_CLIENTES.get(numero_cliente)
+                    
+                    if not cotizacion:
+                       enviar_mensaje(
+                           numero_cliente,
             "❌ No encontré una cotización activa para este pedido."
-        )
-    return "EVENT_RECEIVED", 200
+                       )
+                       return "EVENT_RECEIVED", 
+                 200
 
     # Obtener total de la cotización existente
-    total_cotizado = cotizacion.get("total", 0)
+                    total_cotizado =
+                 cotizacion.get("total", 0)
 
     # Guardamos que el pedido fue confirmado
-    cotizacion["confirmado"] = True
+              cotizacion["confirmado"] =
+                True
 
     # Enviar inmediatamente la tarjeta de pago
-enviar_tarjeta_pago_pedido(numero_cliente)
-
-return "EVENT_RECEIVED", 200
+                enviar_tarjeta_pago_pedido(numero_cliente)
+                    return "EVENT_RECEIVED", 200
         
  
 
