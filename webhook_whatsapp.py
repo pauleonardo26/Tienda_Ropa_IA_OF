@@ -43,8 +43,23 @@ VERIFY_TOKEN = WHATSAPP_VERIFY_TOKEN
 # 02 - DESTINATARIO WHATSAPP - TELEFONO O BSUID [MOVER A whatsapp_utils.py]
 # =========================================================
 
+
 def obtener_destino_whatsapp(numero_destino):
+
+    # 🐱 RESPALDO: antes enviaba siempre con "to"
+    # return {"to": numero_destino}
+
+    # BSUID de Meta → usar "recipient"
+    if str(numero_destino).startswith("PE."):
+        return {"recipient": numero_destino}
+
+    # Número telefónico normal → usar "to"
     return {"to": numero_destino}
+
+
+
+#def obtener_destino_whatsapp(numero_destino):
+    #return {"to": numero_destino}
 
 
 #def obtener_destino_whatsapp(numero_destino):
