@@ -832,7 +832,6 @@ def enviar_imagen(numero_destino, media_id, texto):
 # =========================================================
 # 16.1 - TARJETA DE PAGO DEL PEDIDO
 # =========================================================
-
 def enviar_tarjeta_pago_pedido(numero_destino):
 
     url = f"https://graph.facebook.com/v26.0/{PHONE_NUMBER_ID}/messages"
@@ -844,13 +843,17 @@ def enviar_tarjeta_pago_pedido(numero_destino):
 
     destino = obtener_destino_whatsapp(numero_destino)
 
+    # =========================================================
+    # ENVIAR TARJETA DE PAGO
+    # =========================================================
+
     datos = {
         "messaging_product": "whatsapp",
         **destino,
         "type": "image",
         "image": {
-            "link": "https://pub-9aa04db1bd594751a5b8fb2654da15fd.r2.dev/file_00000000b484820e9b52ed1bc4943655.png" 
-            }
+            "link": "https://pub-9aa04db1bd594751a5b8fb2654da15fd.r2.dev/file_00000000b484820e9b52ed1bc4943655.png"
+        }
     }
 
     respuesta = requests.post(
@@ -864,6 +867,43 @@ def enviar_tarjeta_pago_pedido(numero_destino):
 
     respuesta.raise_for_status()
 
+    # =========================================================
+    # BOTÓN CORREGIR PEDIDO
+    # =========================================================
+
+    datos_boton = {
+        "messaging_product": "whatsapp",
+        **destino,
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {
+                "text": "¿Necesitas modificar tu pedido?"
+            },
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "corregir_pedido",
+                            "title": "✏️ CORREGIR PEDIDO"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+
+    respuesta_boton = requests.post(
+        url,
+        headers=headers,
+        json=datos_boton
+    )
+
+    print("Botón corregir pedido:", respuesta_boton.status_code)
+    print(respuesta_boton.text)
+
+    respuesta_boton.raise_for_status()
 
 
 # =========================================================
