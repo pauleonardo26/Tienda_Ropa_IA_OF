@@ -2825,14 +2825,60 @@ def recibir_mensaje():
 
             return "EVENT_RECEIVED", 200
 
-    except Exception as error:
 
+    # =========================================================
+    # 21 - MANEJO GENERAL DE ERRORES
+    # =========================================================
+    except Exception as error:
         print(
             "Error procesando el mensaje:",
             error
         )
 
+        mensaje_error = str(error)
+
+        # =====================================================
+        # 21.1 - ERROR DE CUOTA DE IA
+        # =====================================================
+
+        if mensaje_error == "CUOTA_IA_AGOTADA":
+
+            enviar_mensaje(
+                numero_cliente,
+                (
+                    "⏳ En este momento el asistente está "
+                    "procesando muchos pedidos.\n\n"
+                    "Por favor, vuelve a enviarme tu pedido "
+                    "en unos minutos."
+                )
+            )
+
+            return "EVENT_RECEIVED", 200
+
+        # =====================================================
+        # 21.2 - OTROS ERRORES
+        # =====================================================
+
+        enviar_mensaje(
+            numero_cliente,
+            (
+                "⚠️ No pude procesar tu mensaje correctamente.\n\n"
+                "Por favor, vuelve a enviarme tu pedido.\n\n"
+                "Ejemplo:\n"
+                "1 legging negro talla 4"
+            )
+        )
+
         return "EVENT_RECEIVED", 200
+
+    #except Exception as error:
+
+        #print(
+            #"Error procesando el mensaje:",
+            #error
+        #)
+
+        #return "EVENT_RECEIVED", 200
 
 
 # =========================================================
