@@ -1,91 +1,297 @@
 # =========================================================
-# 01 - IMPORTACIONES
+# gemini.py
+# Motor de IA para interpretar pedidos y responder consultas
 # =========================================================
 
 import os
 import json
 import time
 
-from dotenv import load_dotenv
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 
-from conexion import conexion
 from prompts import construir_prompt_pedido
 
 
 # =========================================================
-# 02 - CONFIGURACION GEMINI
+# CONFIGURACIÓN
 # =========================================================
 
-load_dotenv()
+API_KEY = os.getenv("GOOGLE_API_KEY", "").strip()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if API_KEY:
+    genai.configure(api_key=API_KEY)
 
-cliente = genai.Client(
-    api_key=GEMINI_API_KEY
-)
+
+MODELO_IA = "gemini-3.6-flash"
 
 
 # =========================================================
-# 20 - GENERAR CON REINTENTOS SI GEMINI ESTA SATURADO
+# CREAR MODELO
 # =========================================================
 
-def generar_con_reintentos(prompt, esquema, max_intentos=3):
+def obtener_modelo():
+    if not API_KEY:
+        raise RuntimeError(
+            "GOOGLE_API_KEY no está configurada."
+        )
+
+    return genai.GenerativeModel(MODELO_IA)
+
+
+# =========================================================
+# LIMPIAR RESPUESTA JSON
+# =========================================================
+
+def limpiar_json(texto):
+    """
+    Limpia posibles bloques Markdown antes de convertir
+    la respuesta de la IA a JSON.
+    """
+
+    if not texto:
+        return ""
+
+    texto = texto.strip()
+
+    if texto.startswith("```json"):
+        texto = texto[7:]
+
+    elif texto.startswith("```"):
+        texto = texto[3:]
+
+    if texto.endswith("```"):
+        texto = texto[:-3]
+
+    return texto.strip()
+
+
+# =========================================================
+# GENERAR RESPUESTA CON REINTENTOS
+# =========================================================
+
+def generar_con_reintentos(prompt, max_intentos=3):
+    """
+    Ejecuta la consulta a la IA.
+
+    Maneja especialmente:
+    - 429 RESOURCE_EXHAUSTED
+    - 503 UNAVAILABLE
+    - HIGH DEMAND
+
+    No repite indefinidamente una petición que claramente
+    tiene un problema de cuota.
+    """
+
+    modelo = obtener_modelo()
+
+    ultimo_error = None
 
     for intento in range(1, max_intentos + 1):
 
         try:
 
-            print(
-                f"Intento Gemini {intento} de {max_intentos}"
-            )
+            respuesta = modelo.generate_content(prompt)
 
-            respuesta = cliente.models.generate_content(
-                model="gemini-3.6-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=esquema
+            if not respuesta:
+                raise RuntimeError(
+                    "La IA no devolvió ninguna respuesta."
                 )
+
+            texto = getattr(
+                respuesta,
+                "text",
+                None
             )
 
-            return json.loads(respuesta.text)
+            if not texto:
+                raise RuntimeError(
+                    "La IA devolvió una respuesta vacía."
+                )
+
+            return texto.strip()
 
         except Exception as error:
 
+            ultimo_error = error
+
             texto_error = str(error)
 
-            print(
-                f"Error Gemini intento {intento}:",
-                texto_error
+            texto_mayusculas = texto_error.upper()
+
+            es_cuota = (
+                "429" in texto_error
+                or "RESOURCE_EXHAUSTED" in texto_mayusculas
+                or "QUOTA" in texto_mayusculas
             )
 
             es_temporal = (
                 "503" in texto_error
-                or "UNAVAILABLE" in texto_error.upper()
-                or "HIGH DEMAND" in texto_error.upper()
+                or "UNAVAILABLE" in texto_mayusculas
+                or "HIGH DEMAND" in texto_mayusculas
+                or "SERVICE UNAVAILABLE" in texto_mayusculas
             )
 
-            if not es_temporal:
-                raise
+            print(
+                f"⚠️ Error IA intento "
+                f"{intento}/{max_intentos}: {texto_error}"
+            )
 
-            if intento < max_intentos:
+            # -------------------------------------------------
+            # ERROR DE CUOTA
+            # -------------------------------------------------
 
-                segundos = intento * 2
+            if es_cuota:
 
                 print(
-                    f"Gemini saturado. "
-                    f"Reintentando en {segundos} segundos..."
+                    "⚠️ La API de IA alcanzó una cuota o límite."
                 )
 
-                time.sleep(segundos)
+                # No tiene sentido hacer tres llamadas
+                # adicionales si el proveedor ya informó
+                # que se alcanzó una cuota.
+                raise RuntimeError(
+                    "CUOTA_IA_AGOTADA"
+                )
 
-    return None
+            # -------------------------------------------------
+            # ERROR TEMPORAL
+            # -------------------------------------------------
+
+            if es_temporal and intento < max_intentos:
+
+                espera = intento * 3
+
+                print(
+                    f"⏳ Reintentando en {espera} segundos..."
+                )
+
+                time.sleep(espera)
+
+                continue
+
+            # -------------------------------------------------
+            # OTROS ERRORES
+            # -------------------------------------------------
+
+            raise
+
+    raise RuntimeError(
+        f"Error de IA después de varios intentos: {ultimo_error}"
+    )
 
 
 # =========================================================
-# 21 - INTERPRETAR PEDIDO DEL CLIENTE CON GEMINI
+# NORMALIZAR RESPUESTA DE PEDIDO
+# =========================================================
+
+def normalizar_pedido(datos):
+    """
+    Garantiza que la estructura recibida desde la IA tenga
+    siempre las claves esperadas por Python.
+    """
+
+    if not isinstance(datos, dict):
+        return {
+            "es_pedido": True,
+            "necesita_aclaracion": True,
+            "motivo_aclaracion": (
+                "No pude interpretar correctamente el pedido."
+            ),
+            "productos": []
+        }
+
+    es_pedido = datos.get(
+        "es_pedido",
+        True
+    )
+
+    necesita_aclaracion = datos.get(
+        "necesita_aclaracion",
+        False
+    )
+
+    motivo_aclaracion = datos.get(
+        "motivo_aclaracion",
+        ""
+    )
+
+    productos = datos.get(
+        "productos",
+        []
+    )
+
+    if not isinstance(productos, list):
+        productos = []
+
+    productos_normalizados = []
+
+    for producto in productos:
+
+        if not isinstance(producto, dict):
+            continue
+
+        nombre = producto.get(
+            "producto",
+            ""
+        )
+
+        cantidad = producto.get(
+            "cantidad",
+            1
+        )
+
+        tallas = producto.get(
+            "tallas",
+            []
+        )
+
+        colores = producto.get(
+            "colores",
+            []
+        )
+
+        if not isinstance(tallas, list):
+            tallas = [tallas] if tallas else []
+
+        if not isinstance(colores, list):
+            colores = [colores] if colores else []
+
+        try:
+            cantidad = int(cantidad)
+        except Exception:
+            cantidad = 1
+
+        productos_normalizados.append(
+            {
+                "producto": str(
+                    nombre or ""
+                ).strip(),
+
+                "cantidad": cantidad,
+
+                "tallas": tallas,
+
+                "colores": colores
+            }
+        )
+
+    return {
+        "es_pedido": bool(es_pedido),
+
+        "necesita_aclaracion": bool(
+            necesita_aclaracion
+        ),
+
+        "motivo_aclaracion": str(
+            motivo_aclaracion or ""
+        ).strip(),
+
+        "productos": productos_normalizados
+    }
+
+
+# =========================================================
+# INTERPRETAR PEDIDO
 # =========================================================
 
 def interpretar_pedido(mensaje_cliente):
@@ -94,221 +300,114 @@ def interpretar_pedido(mensaje_cliente):
         mensaje_cliente
     )
 
-    esquema = {
-        "type": "object",
-        "properties": {
-
-            "es_pedido": {
-                "type": "boolean"
-            },
-
-            "productos": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-
-                        "producto": {
-                            "type": "string"
-                        },
-
-                        "cantidad": {
-                            "type": "integer"
-                        },
-
-                        "tallas": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-
-                        "colores": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-
-                    },
-
-                    "required": [
-                        "producto",
-                        "cantidad",
-                        "tallas",
-                        "colores"
-                    ]
-                }
-            }
-
-        },
-
-        "required": [
-            "es_pedido",
-            "productos"
-        ]
-    }
-
-    datos = generar_con_reintentos(
-        prompt,
-        esquema,
-        max_intentos=3
+    texto = generar_con_reintentos(
+        prompt
     )
 
-    if datos is None:
-
-        return {
-            "es_pedido": False,
-            "productos": [],
-            "error_temporal": True
-        }
-
-    datos["error_temporal"] = False
-
-    return datos
-
-
-# =========================================================
-# 22 - CONSULTAR INVENTARIO REAL
-# =========================================================
-
-def consultar_inventario():
-
-    cursor = conexion.cursor()
+    texto_limpio = limpiar_json(
+        texto
+    )
 
     try:
 
-        cursor.execute(
-            """
-            SELECT
-                p.nombre,
-                p.categoria,
-                p.precio,
-                v.talla,
-                v.color,
-                v.stock,
-                v.foto
-            FROM variantes_producto v
-            JOIN productos p
-                ON p.id_producto = v.id_producto
-            WHERE v.stock > 0
-            ORDER BY p.nombre, v.talla, v.color
-            """
+        datos = json.loads(
+            texto_limpio
         )
 
-        return cursor.fetchall()
+    except json.JSONDecodeError as error:
 
-    finally:
+        print(
+            "❌ Error convirtiendo respuesta de IA a JSON:"
+        )
 
-        cursor.close()
+        print(
+            texto_limpio
+        )
 
-
-# =========================================================
-# 23 - RESPONDER CONSULTAS GENERALES CON GEMINI
-# =========================================================
-
-def responder_con_gemini(mensaje_cliente):
-
-    inventario = consultar_inventario()
-
-    if not inventario:
+        print(
+            f"Detalle JSON: {error}"
+        )
 
         return {
-            "encontrado": False,
-            "respuesta": (
-                "En este momento no tenemos "
-                "productos disponibles."
+            "es_pedido": True,
+            "necesita_aclaracion": True,
+            "motivo_aclaracion": (
+                "No pude interpretar correctamente "
+                "tu pedido."
             ),
-            "foto": ""
+            "productos": []
         }
 
-    inventario_texto = ""
+    datos = normalizar_pedido(
+        datos
+    )
 
-    for producto in inventario:
+    print(
+        "🧠 Pedido interpretado:"
+    )
 
-        nombre, categoria, precio, talla, color, stock, foto = producto
-
-        inventario_texto += (
-            f"Producto: {nombre}\n"
-            f"Categoría: {categoria}\n"
-            f"Precio: S/ {precio}\n"
-            f"Talla: {talla}\n"
-            f"Color: {color}\n"
-            f"Stock: {stock}\n"
-            f"Foto: {foto}\n"
-            f"---\n"
+    print(
+        json.dumps(
+            datos,
+            ensure_ascii=False,
+            indent=2
         )
+    )
+
+    return datos
+
+
+# =========================================================
+# RESPONDER CONSULTAS GENERALES
+# =========================================================
+
+def responder_con_gemini(
+    mensaje_cliente,
+    inventario_texto=""
+):
+    """
+    Responde consultas generales del cliente.
+
+    Esta función se mantiene por compatibilidad con el
+    webhook actual.
+
+    No modifica pedidos ni stock.
+    """
 
     prompt = f"""
-Eres un asistente de ventas de una tienda de ropa infantil.
+Eres un vendedor de Outlet Valentina Kids Perú.
 
-REGLAS:
+Responde de manera clara, amable y breve.
 
-- Usa únicamente productos del inventario real.
-- Nunca inventes productos.
-- Nunca inventes precios.
-- Nunca inventes tallas.
-- Nunca inventes colores.
-- Nunca inventes stock.
-- Si encuentras exactamente o razonablemente
-  el producto solicitado, devuelve encontrado=true.
-- Si no existe, devuelve encontrado=false.
-- Si encuentras un producto,
-  devuelve exactamente su valor de Foto.
-- Si no encuentras producto o no hay foto,
-  devuelve foto="".
-- La respuesta al cliente debe ser breve y directa.
-- Máximo 3 líneas.
+El cliente escribió:
 
-INVENTARIO REAL:
+{mensaje_cliente}
+
+Información del inventario disponible:
 
 {inventario_texto}
 
-MENSAJE DEL CLIENTE:
+IMPORTANTE:
 
-{mensaje_cliente}
+- No inventes productos.
+- No inventes precios.
+- No inventes stock.
+- No inventes tallas.
+- No inventes colores.
+- Si la información no está disponible, indícalo claramente.
+- No modifiques ningún pedido.
+- No descuentes stock.
+- No confirmes un pago.
+
+Responde en español.
 """
 
-    esquema = {
-        "type": "object",
-        "properties": {
-
-            "encontrado": {
-                "type": "boolean"
-            },
-
-            "respuesta": {
-                "type": "string"
-            },
-
-            "foto": {
-                "type": "string"
-            }
-
-        },
-
-        "required": [
-            "encontrado",
-            "respuesta",
-            "foto"
-        ]
-    }
-
-    datos = generar_con_reintentos(
-        prompt,
-        esquema,
-        max_intentos=3
+    texto = generar_con_reintentos(
+        prompt
     )
 
-    if datos is None:
-
-        return {
-            "encontrado": False,
-            "respuesta": (
-                "Estoy teniendo una pequeña demora. "
-                "Inténtalo nuevamente en unos segundos."
-            ),
-            "foto": ""
-        }
-
-    return datos
+    return {
+        "encontrado": True,
+        "respuesta": texto,
+        "foto": None
+    }
