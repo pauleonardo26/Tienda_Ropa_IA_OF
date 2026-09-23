@@ -2548,14 +2548,94 @@ def recibir_mensaje():
 
                 return "EVENT_RECEIVED", 200
 
+
+
+
+
             # -----------------------------------------------------
-            # 20.11.2 - CONSULTA Y NO PEDIDO
+            # 20.11.2 - PEDIDO INCOMPLETO / CONSULTA
             # -----------------------------------------------------
 
             es_pedido = pedido_interpretado.get(
                 "es_pedido",
                 True
             )
+
+            necesita_aclaracion = pedido_interpretado.get(
+                "necesita_aclaracion",
+                False
+            )
+
+            motivo_aclaracion = (
+                pedido_interpretado.get(
+                    "motivo_aclaracion",
+                    ""
+                )
+                or ""
+            ).strip()
+
+            productos = pedido_interpretado.get(
+                "productos",
+                []
+            )
+
+            # =====================================================
+            # 20.11.2.1 - PEDIDO QUE NECESITA ACLARACIÓN
+            # =====================================================
+
+            if es_pedido and necesita_aclaracion:
+
+                print(
+                    "⚠️ Pedido incompleto. "
+                    "Motivo:",
+                    motivo_aclaracion
+                )
+
+                if motivo_aclaracion:
+
+                    enviar_mensaje(
+                        numero_cliente,
+                        (
+                            "⚠️ Para completar tu pedido "
+                            "necesito un dato más.\n\n"
+                            f"{motivo_aclaracion}\n\n"
+                            "Escríbeme el dato que falta "
+                            "y continuaré con tu pedido."
+                        )
+                    )
+
+                else:
+
+                    enviar_mensaje(
+                        numero_cliente,
+                        (
+                            "⚠️ No pude identificar "
+                            "completamente tu pedido.\n\n"
+                            "Por favor indícame:\n"
+                            "• Producto\n"
+                            "• Cantidad\n"
+                            "• Talla\n"
+                            "• Color\n\n"
+                            "Ejemplo:\n"
+                            "1 legging negro talla 4"
+                        )
+                    )
+
+                # -------------------------------------------------
+                # IMPORTANTE:
+                # El cliente continúa dentro del flujo de pedido.
+                # No se borra la cotización existente.
+                # -------------------------------------------------
+
+                ESTADO_CLIENTES[
+                    numero_cliente
+                ] = "esperando_pedido"
+
+                return "EVENT_RECEIVED", 200
+
+            # =====================================================
+            # 20.11.2.2 - MENSAJE QUE NO ES UN PEDIDO
+            # =====================================================
 
             if not es_pedido:
 
@@ -2583,20 +2663,31 @@ def recibir_mensaje():
 
                 return "EVENT_RECEIVED", 200
 
-            productos = pedido_interpretado.get(
-                "productos",
-                []
-            )
+            # =====================================================
+            # 20.11.2.3 - PEDIDO SIN PRODUCTOS IDENTIFICADOS
+            # =====================================================
 
             if not productos:
+
+                print(
+                    "⚠️ La IA detectó intención de pedido "
+                    "pero no identificó productos."
+                )
+
+                ESTADO_CLIENTES[
+                    numero_cliente
+                ] = "esperando_pedido"
 
                 enviar_mensaje(
                     numero_cliente,
                     (
-                        "❌ No pude identificar correctamente "
-                        "los productos de tu pedido.\n\n"
-                        "Escríbelo nuevamente indicando "
-                        "producto, cantidad, talla y color."
+                        "⚠️ No pude identificar completamente "
+                        "tu pedido.\n\n"
+                        "Por favor escríbeme nuevamente "
+                        "indicando producto, cantidad, talla "
+                        "y color.\n\n"
+                        "Ejemplo:\n"
+                        "1 legging negro talla 4"
                     )
                 )
 
