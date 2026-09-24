@@ -644,6 +644,10 @@ def enviar_tarjeta_producto_nina(
 # =========================================================
 
 def enviar_tarjeta_legging(numero_destino):
+    
+    PRODUCTO_SELECCIONADO_CLIENTES[
+        numero_destino
+    ] = "Leggins Niña"
 
     imagen_url = (
         "https://pub-9aa04db1bd594751a5b8fb2654da15fd.r2.dev/"
