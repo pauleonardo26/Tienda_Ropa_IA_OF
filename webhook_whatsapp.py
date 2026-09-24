@@ -2519,8 +2519,8 @@ def recibir_mensaje():
                 "Pedido escrito:",
                 texto_cliente
             )
-
-                    enviar_mensaje(
+            
+            enviar_mensaje(
                 numero_cliente,
                 "⏳ Un momento, estoy revisando tu pedido..."
             )
