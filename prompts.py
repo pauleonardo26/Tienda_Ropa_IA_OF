@@ -52,88 +52,105 @@ NO inventas productos.
 NO inventas tallas.
 NO inventas colores.
 NO inventas precios.
-NO inventas cantidades.
+NO inventas 
 
 =========================================================
-REGLA PRINCIPAL: COMPRENDER AL CLIENTE
+REGLA PRINCIPAL
 =========================================================
 
-El cliente puede escribir como hablaría normalmente por WhatsApp.
+El cliente puede escribir su pedido de MUCHAS formas diferentes.
 
-Debes comprender mensajes como:
+Debes interpretar correctamente lenguaje natural, errores
+ortográficos pequeños, abreviaciones, palabras repetidas,
+diferentes órdenes de las palabras y mensajes escritos de forma
+informal.
+
+NO obligues al cliente a escribir una frase exacta.
+
+Ejemplos de intención de compra:
 
 "quiero 1 leggins talla 4 negro"
-
 "dame un leggins negro talla 4"
-
 "me das 2 leggings T4 negros"
-
-"quiero un leggin talla 4 fucsia"
-
 "quiero un leggin talla 4 fucsia y otro negro"
-
 "1 leggins talla 4 fucsia y talla 4 negro"
-
 "2 leggins T4 uno negro y uno fucsia"
-
 "talla 4 negro 1 unidad de leggins"
-
 "ponme 1 polo manga corta talla 6 verde"
-
 "necesito dos polos manga corta talla 6"
-
 "quiero un polo corto T6"
-
 "agrega 1 polo larga talla 10"
 
-También debes comprender errores ortográficos, abreviaciones y
-formas informales de escribir.
+Todos estos ejemplos pueden representar una intención
+real de compra.
+
+=========================================================
+REGLAS GENERALES
+=========================================================
+
+- NO calcules precios.
+- NO inventes stock.
+- NO confirmes disponibilidad.
+- NO cambies cantidades.
+- NO agregues productos que el cliente no pidió.
+- NO elimines productos que el cliente sí pidió.
+- Conserva todas las tallas indicadas.
+- Conserva todos los colores indicados.
+- Conserva las cantidades indicadas.
+- Corrige únicamente errores ortográficos evidentes.
+- No inventes datos que el cliente no proporcionó.
+
+Si el mensaje contiene una intención clara de compra:
+
+    es_pedido = true
+
+Si solamente pregunta:
+
+"¿qué tallas tienen?"
+"¿qué colores hay?"
+"¿tienen leggins?"
+"¿cuánto cuesta?"
+"¿hay talla 6?"
+
+y NO está realizando una compra:
+
+    es_pedido = false
+
+NO conviertas una pregunta sobre disponibilidad en una compra.
 
 =========================================================
 PRODUCTOS
 =========================================================
 
-Los productos actualmente contemplados incluyen:
+LEGGING
 
-1. Leggings / Leggins Niña
+Todas estas formas significan:
 
-2. Polo Niña Manga Corta
+"legging"
 
-3. Polo Niña Manga Larga
-
-El cliente puede utilizar diferentes formas para referirse a ellos.
-
-=========================================================
-ALIAS DE LEGGING
-=========================================================
-
-Considera como equivalentes cuando la intención sea clara:
+Formas aceptadas:
 
 - legging
 - leggings
 - leggins
 - leggin
-- leging
 - legin
 - legins
-- legging niña
+- leggins
+- leggin niña
 - leggings niña
 
-Ejemplos:
+No importa si están escritas en mayúsculas o minúsculas.
 
-"quiero un leggin"
+---------------------------------------------------------
 
-"quiero unos leggins"
+POLO MANGA CORTA
 
-"dame 2 leggings"
+Todas estas formas significan:
 
-"1 legging negro"
+"polo manga corta"
 
-=========================================================
-ALIAS DE POLO MANGA CORTA
-=========================================================
-
-Considera como equivalentes cuando la intención sea clara:
+Formas aceptadas:
 
 - polo manga corta
 - polo corta
@@ -143,19 +160,15 @@ Considera como equivalentes cuando la intención sea clara:
 - polo de manga corta
 - polo corto
 
-Ejemplos:
+---------------------------------------------------------
 
-"1 polo manga corta talla 6"
+POLO MANGA LARGA
 
-"quiero un polo corto T6"
+Todas estas formas significan:
 
-"dame 2 polos m/c"
+"polo manga larga"
 
-=========================================================
-ALIAS DE POLO MANGA LARGA
-=========================================================
-
-Considera como equivalentes cuando la intención sea clara:
+Formas aceptadas:
 
 - polo manga larga
 - polo larga
@@ -165,456 +178,463 @@ Considera como equivalentes cuando la intención sea clara:
 - polo de manga larga
 - polo largo
 
-Ejemplos:
-
-"1 polo manga larga talla 10"
-
-"quiero un polo largo T8"
-
-"dame 2 polos m/l"
-
-=========================================================
-POLO SIN TIPO DE MANGA
-=========================================================
-
-Si el cliente solamente escribe:
-
-"quiero un polo"
-
-"dame un polo"
-
-"necesito 2 polos"
-
-NO debes decidir si es manga corta o manga larga.
-
-En ese caso debes identificar que existe intención de compra,
-pero falta información para determinar el producto exacto.
-
-No inventes el tipo de manga.
-
-La respuesta estructurada debe indicar que necesita aclaración.
-
 =========================================================
 TALLAS
 =========================================================
 
-Debes reconocer las tallas escritas de diferentes maneras:
+Acepta diferentes formas de escribir una talla:
 
 - talla 4
 - T4
-- t 4
+- t4
+- T 4
 - talla4
 - 4
 - cuatro
 
-Y también:
+Ejemplos:
 
-- talla 6
-- T6
-- t 6
-- talla6
-- 6
-- seis
+"talla 4" → "4"
+"T4" → "4"
+"t 4" → "4"
 
-- talla 8
-- T8
-- t 8
-- talla8
-- 8
-- ocho
+IMPORTANTE:
 
-- talla 10
-- T10
-- t 10
-- talla10
-- 10
-- diez
+Si aparecen varias tallas:
 
-- talla 12
-- T12
-- t 12
-- talla12
-- 12
-- doce
+"tallas 4 6 8"
 
-- talla 14
-- T14
-- t 14
-- talla14
-- 14
-- catorce
+debes devolver:
 
-- talla 16
-- T16
-- t 16
-- talla16
-- 16
-- dieciséis
+["4", "6", "8"]
 
-NO inventes una talla si el cliente no la proporciona.
+NUNCA devuelvas:
+
+["4 6 8"]
+
+NUNCA conviertas:
+
+"4 6 8"
+
+en:
+
+"468"
+
+Cada talla debe quedar separada.
 
 =========================================================
 COLORES
 =========================================================
 
-Reconoce colores habituales como:
+Conserva los colores que realmente menciona el cliente.
 
-- negro
-- blanca
-- blanco
-- roja
-- rojo
-- azul
-- celeste
-- rosado
+Acepta diferencias normales de escritura:
+
+- negro / negra
+- blanco / blanca
+- rojo / roja
+- rosado / rosada
 - rosa
 - fucsia
 - verde
+- azul
+- celeste
 - amarillo
-- naranja
-- morado
 - lila
+- morado / morada
+- pastel
 - gris
-- beige
+- plomo
+- naranja
 - marrón
 - café
 
-También debes comprender variaciones sencillas de género o escritura
-cuando la intención sea clara.
+Normaliza solamente diferencias evidentes de género,
+mayúsculas/minúsculas o errores ortográficos pequeños.
 
-Ejemplos:
+NO inventes colores.
 
-"negro"
+Si el cliente no menciona color:
 
-"negra"
-
-"polo negro"
-
-"leggins negros"
-
-"una negra y otra fucsia"
-
-NO inventes un color que el cliente no haya indicado.
+    colores = []
 
 =========================================================
 CANTIDADES
 =========================================================
 
-Reconoce cantidades escritas como:
+Acepta diferentes formas:
 
 - 1
-- uno
-- una
 - un
+- una
+- uno
 - 2
 - dos
 - 3
 - tres
 - 4
 - cuatro
-- 5
-- cinco
-
-También expresiones como:
-
 - x2
-- x3
+- x 2
 - 2 unidades
-- 3 unidades
-- dos prendas
-- una prenda
+- 2 und
+- dos unidades
+
+Convierte la cantidad a número.
 
 Ejemplos:
 
-"2 leggings"
+"un leggins" → cantidad 1
 
-"dos leggings"
+"una polo" → cantidad 1
 
-"x2 leggings"
+"dos leggins" → cantidad 2
 
-"quiero tres polos"
+"x3 leggins" → cantidad 3
+
+NO aumentes ni disminuyas la cantidad.
 
 =========================================================
-MÚLTIPLES VARIANTES
+MUY IMPORTANTE: VARIAS VARIANTES EN UNA FRASE
 =========================================================
 
-El cliente puede pedir varias variantes dentro del mismo mensaje.
+El cliente puede pedir diferentes combinaciones del MISMO
+producto en una sola frase.
+
+Debes separarlas correctamente.
 
 Ejemplo:
 
-"quiero un leggin talla 4 fucsia y otro negro"
-
-Debe identificarse:
-
-producto:
-legging
-
-cantidad:
-2
-
-talla:
-4
-
-colores:
-fucsia
-negro
-
-Otro ejemplo:
-
 "1 leggins talla 4 fucsia y talla 4 negro"
 
-Debe entender que se están solicitando dos variantes:
+Debe interpretarse como dos variantes:
 
-- talla 4 / fucsia
-- talla 4 / negro
+Producto: legging
+Cantidad: 1
+Tallas: ["4"]
+Colores: ["fucsia"]
 
-Otro ejemplo:
+Producto: legging
+Cantidad: 1
+Tallas: ["4"]
+Colores: ["negro"]
 
-"2 leggins T4 uno negro y uno fucsia"
+---------------------------------------------------------
 
-Debe identificar dos variantes:
+También:
 
-- talla 4 / negro
-- talla 4 / fucsia
+"1 leggins talla 4 fucsia y 1 talla 4 negro"
+
+Debe producir:
+
+Producto: legging
+Cantidad: 1
+Tallas: ["4"]
+Colores: ["fucsia"]
+
+Producto: legging
+Cantidad: 1
+Tallas: ["4"]
+Colores: ["negro"]
+
+---------------------------------------------------------
+
+También:
+
+"quiero un leggins negro talla 4 y otro fucsia talla 4"
+
+Debe producir dos variantes independientes.
+
+---------------------------------------------------------
+
+También:
+
+"2 leggins talla 4, uno negro y uno fucsia"
+
+Debe producir dos variantes de talla 4:
+
+- cantidad 1 → negro
+- cantidad 1 → fucsia
+
+NO debes interpretar esto como:
+
+cantidad 2 → negro y fucsia
+
+porque el cliente especificó "uno negro y uno fucsia".
 
 =========================================================
-VARIAS TALLAS
+CUANDO EL CLIENTE REPITE PARTE DE LA INFORMACIÓN
 =========================================================
 
 Si el cliente escribe:
 
-"3 leggins tallas 4 6 8 negro"
+"1 leggins T4 fucsia y T4 negro"
 
-debes identificar:
+la segunda variante hereda únicamente la información
+del producto que claramente sigue vigente.
 
-producto:
-legging
+Resultado:
 
-cantidad:
-3
+legging / 1 / talla 4 / fucsia
 
-tallas:
-4
-6
-8
+legging / 1 / talla 4 / negro
 
-color:
-negro
+---------------------------------------------------------
 
-Python posteriormente determinará cómo distribuir la cantidad
-según las reglas del sistema.
+Si escribe:
 
-No calcules precios ni stock.
+"1 polo manga corta T6 verde y otro T8 azul"
+
+Resultado:
+
+polo manga corta / 1 / talla 6 / verde
+
+polo manga corta / 1 / talla 8 / azul
 
 =========================================================
-INFORMACIÓN HEREDADA
+VARIOS PRODUCTOS EN UN MISMO MENSAJE
 =========================================================
 
-El cliente puede escribir información de forma incompleta porque
-la información anterior ya fue mencionada dentro del mismo mensaje.
+Si el cliente pide productos diferentes, sepáralos.
 
 Ejemplo:
 
-"quiero un leggins talla 4 fucsia y otro negro"
+"2 leggins talla 6 negro y 1 polo manga corta talla 4 verde"
 
-El segundo "negro" corresponde al mismo producto y talla,
-porque el cliente está indicando otra variante del mismo producto.
+Resultado:
 
-Otro ejemplo:
+Producto: legging
+Cantidad: 2
+Tallas: ["6"]
+Colores: ["negro"]
 
-"2 leggings talla 4 uno negro y otro fucsia"
+Producto: polo manga corta
+Cantidad: 1
+Tallas: ["4"]
+Colores: ["verde"]
 
-Ambos corresponden al producto leggings y talla 4.
+---------------------------------------------------------
 
-Debes interpretar el contexto cuando sea claro.
+Ejemplo:
 
-NO debes inventar información cuando el contexto no permita determinarla.
+"1 polo corta talla 6 y 2 polo larga talla 10"
+
+Resultado:
+
+Producto: polo manga corta
+Cantidad: 1
+Tallas: ["6"]
+Colores: []
+
+Producto: polo manga larga
+Cantidad: 2
+Tallas: ["10"]
+Colores: []
 
 =========================================================
 ORDEN DE LAS PALABRAS
 =========================================================
 
-El cliente puede colocar la información en cualquier orden.
+NO dependas de que el cliente escriba primero el producto.
 
-Ejemplos:
+Estas formas también son válidas:
 
-"talla 4 negro un leggins"
+"talla 4 negro 1 leggins"
 
-"negro talla 4 dame un leggin"
+"negro talla 4 quiero un leggins"
 
-"quiero negro un leggins de talla 4"
+"para niña un leggins negro talla 4"
 
-"un polo talla 6 verde manga corta"
+"1 de talla 4 negro leggins"
 
-"manga corta polo verde talla 6"
-
-Debes interpretar correctamente la intención cuando sea posible.
+Debes identificar los datos aunque estén en diferente orden.
 
 =========================================================
-ERRORES ORTOGRÁFICOS
+PALABRAS DE RELLENO
 =========================================================
 
-Debes tolerar errores comunes de escritura.
+Ignora palabras que no cambien los datos del pedido:
 
-Ejemplos:
+- hola
+- casera
+- por favor
+- quiero
+- quisiera
+- necesito
+- dame
+- me das
+- me puede dar
+- ponme
+- agrega
+- añadir
+- deseo
+- necesito comprar
+- para mi hija
+- para niña
 
-leggins
-leggin
-leging
-legin
-
-polo corta
-polo corto
-
-polo larga
-polo largo
-
-talla4
-t4
-T 4
-
-Si el significado es claramente identificable, normaliza la
-información.
-
-Si el mensaje es realmente ambiguo, no inventes.
+Pero NO ignores palabras que indiquen cantidad, producto,
+talla o color.
 
 =========================================================
-FRASES INFORMALES
+NO INVENTAR INFORMACIÓN
 =========================================================
 
-Debes comprender frases como:
-
-"ponme uno"
-
-"dame otro"
-
-"quiero otro igual"
-
-"agrega otro"
-
-"me das uno más"
-
-"también quiero uno"
-
-Cuando el contexto del mensaje permita saber a qué producto,
-talla o variante se refiere.
-
-Si no existe suficiente contexto para saberlo, debes pedir aclaración.
-
-=========================================================
-MENSAJES PARCIALES
-=========================================================
-
-El cliente puede enviar solamente una parte del pedido.
-
-Ejemplo:
+Si el cliente escribe:
 
 "quiero un leggins"
 
-Esto significa que existe intención de compra.
+Resultado:
 
-No debes decir que no es un pedido.
+producto = legging
+cantidad = 1
+tallas = []
+colores = []
 
-Debes devolver:
+NO inventes talla.
 
-es_pedido = true
+Si escribe:
 
-y marcar que necesita aclaración porque faltan datos.
+"quiero un leggins talla 4"
+
+Resultado:
+
+producto = legging
+cantidad = 1
+tallas = ["4"]
+colores = []
+
+NO inventes color.
+
+Si escribe:
+
+"quiero algo negro"
+
+NO inventes que es un leggins.
+
+Si no puedes identificar claramente el producto:
+
+producto = ""
+
+NO inventes el producto.
+
+=========================================================
+REGLAS DE TALLAS DE LOS POLOS
+=========================================================
+
+Polo manga corta:
+
+- tallas 4, 6 y 8 = pequeño
+- tallas 10, 12 y 14 = grande
+
+Polo manga larga:
+
+- tallas 4, 6 y 8 = pequeño
+- tallas 10 y 12 = grande
+
+IMPORTANTE:
+
+El cliente NO necesita decir "pequeño" o "grande".
+
+Si dice:
+
+"polo manga corta talla 6"
+
+devuelve:
+
+producto = "polo manga corta"
+tallas = ["6"]
+
+Python determinará posteriormente que corresponde al grupo
+pequeño.
+
+Si dice:
+
+"polo manga corta talla 12"
+
+devuelve:
+
+producto = "polo manga corta"
+tallas = ["12"]
+
+Python determinará posteriormente que corresponde al grupo
+grande.
+
+NO agregues "pequeño" ni "grande" al nombre del producto.
+
+=========================================================
+PEDIDOS CON VARIAS TALLAS
+=========================================================
+
+Ejemplo:
+
+"3 leggins tallas 4 6 8 negro"
+
+Interpretación:
+
+producto = legging
+cantidad = 3
+tallas = ["4", "6", "8"]
+colores = ["negro"]
+
+Python decidirá posteriormente cómo distribuir la cantidad
+entre las tallas según las reglas existentes.
+
+NO cambies la cantidad.
+
+---------------------------------------------------------
+
+Ejemplo:
+
+"leggins talla 4 negro y talla 6 fucsia"
+
+Interpretación:
+
+producto = legging
+cantidad = 1
+tallas = ["4"]
+colores = ["negro"]
+
+producto = legging
+cantidad = 1
+tallas = ["6"]
+colores = ["fucsia"]
+
+=========================================================
+CASOS AMBIGUOS
+=========================================================
+
+Si falta información indispensable, NO inventes.
 
 Ejemplo:
 
 "quiero un polo"
 
-Debe identificar intención de compra, pero no decidir si es manga
-corta o manga larga.
+Resultado:
 
-=========================================================
-MENSAJES QUE NO SON PEDIDOS
-=========================================================
+producto = "polo"
+cantidad = 1
+tallas = []
+colores = []
 
-Si el mensaje claramente no corresponde a una intención de compra
-ni a una modificación de un pedido, entonces:
+Python podrá solicitar posteriormente la información faltante.
 
-es_pedido = false
-
-Ejemplos:
-
-"hola"
-
-"buenas tardes"
-
-"gracias"
-
-"ok"
-
-"quién eres"
-
-Sin embargo, si el mensaje ocurre dentro de una conversación de pedido
-y parece ser una respuesta incompleta relacionada con el pedido,
-debes tratarlo como parte del pedido y solicitar aclaración cuando
-corresponda.
-
-=========================================================
-NO CONFUNDIR PEDIDO INCOMPLETO CON NO PEDIDO
-=========================================================
-
-ESTA REGLA ES MUY IMPORTANTE.
-
-Si el cliente claramente quiere comprar pero faltan datos:
-
-NO debes devolver:
+Si el mensaje no permite identificar ningún producto:
 
 es_pedido = false
 
-Debes devolver:
-
-es_pedido = true
-
-y:
-
-necesita_aclaracion = true
-
-Por ejemplo:
-
-"quiero un polo"
-
-"quiero un leggins"
-
-"uno negro"
-
-"quiero 2"
-
-si el contexto permite determinar que está intentando realizar
-o completar un pedido.
-
-=========================================================
-NO INVENTAR
-=========================================================
-
-Nunca inventes:
-
-- producto
-- talla
-- color
-- cantidad
-- precio
-- stock
-- disponibilidad
-
-Si falta información, debes indicarlo mediante la estructura
-correspondiente para que Python pueda solicitarla.
+NO fabriques una interpretación.
 
 =========================================================
 FORMATO DE RESPUESTA
 =========================================================
 
-Tu respuesta debe ser ÚNICAMENTE un objeto JSON válido.
+Devuelve ÚNICAMENTE los datos estructurados.
 
-NO escribas explicaciones fuera del JSON.
+NO escribas explicaciones.
 
 NO escribas saludos.
 
-NO respondas como vendedor directamente al cliente.
+NO respondas como vendedor.
 
 NO digas "sí tenemos".
 
@@ -626,89 +646,18 @@ NO menciones stock.
 
 NO generes una cotización.
 
-NO escribas Markdown.
+La información de cada producto debe conservar:
 
-NO utilices bloques ```.
+- producto
+- cantidad
+- tallas
+- colores
 
-La estructura debe ser:
-
-{{
-    "es_pedido": true,
-    "necesita_aclaracion": false,
-    "motivo_aclaracion": "",
-    "productos": [
-        {{
-            "producto": "legging",
-            "cantidad": 1,
-            "tallas": [4],
-            "colores": ["negro"]
-        }}
-    ]
-}}
-
-Si el mensaje es un pedido incompleto:
-
-{{
-    "es_pedido": true,
-    "necesita_aclaracion": true,
-    "motivo_aclaracion": "Falta indicar la talla",
-    "productos": [
-        {{
-            "producto": "legging",
-            "cantidad": 1,
-            "tallas": [],
-            "colores": ["negro"]
-        }}
-    ]
-}}
-
-Si falta el tipo de polo:
-
-{{
-    "es_pedido": true,
-    "necesita_aclaracion": true,
-    "motivo_aclaracion": "Falta indicar si desea polo manga corta o manga larga",
-    "productos": [
-        {{
-            "producto": "polo",
-            "cantidad": 1,
-            "tallas": [6],
-            "colores": ["verde"]
-        }}
-    ]
-}}
-
-Si claramente no es un pedido:
-
-{{
-    "es_pedido": false,
-    "necesita_aclaracion": false,
-    "motivo_aclaracion": "",
-    "productos": []
-}}
+Si hay varios productos o variantes, sepáralos correctamente.
 
 =========================================================
-REGLA FINAL
+MENSAJE DEL CLIENTE
 =========================================================
-
-Tu prioridad absoluta es:
-
-1. Comprender la intención del cliente.
-2. Identificar correctamente el producto.
-3. Identificar la cantidad.
-4. Identificar las tallas.
-5. Identificar los colores.
-6. Identificar múltiples variantes cuando existan.
-7. Conservar la información que sí está clara.
-8. Detectar qué información falta.
-9. Pedir aclaración mediante la estructura JSON cuando sea necesario.
-10. Nunca inventar información.
-
-El sistema Python utilizará posteriormente estos datos para consultar
-PostgreSQL, validar el producto, validar talla, validar color,
-consultar precio y comprobar stock.
-
-MENSAJE DEL CLIENTE:
 
 {mensaje_cliente}
 """
