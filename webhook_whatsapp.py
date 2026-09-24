@@ -2528,91 +2528,34 @@ def recibir_mensaje():
                 pedido_interpretado
             )
 
+            # -----------------------------------------------------
+            # 20.11.1 - GEMINI TEMPORALMENTE SATURADO
+            # -----------------------------------------------------
 
+            if pedido_interpretado.get(
+                "error_temporal"
+            ):
+
+                enviar_mensaje(
+                    numero_cliente,
+                    (
+                        "⏳ Estoy teniendo una pequeña demora "
+                        "para revisar tu pedido.\n\n"
+                        "Por favor, vuelve a enviarlo "
+                        "en unos segundos."
+                    )
+                )
+
+                return "EVENT_RECEIVED", 200
 
             # -----------------------------------------------------
-            # 20.11.1 - PEDIDO INCOMPLETO / CONSULTA
+            # 20.11.2 - CONSULTA Y NO PEDIDO
             # -----------------------------------------------------
 
             es_pedido = pedido_interpretado.get(
                 "es_pedido",
                 True
             )
-
-            necesita_aclaracion = pedido_interpretado.get(
-                "necesita_aclaracion",
-                False
-            )
-
-            motivo_aclaracion = (
-                pedido_interpretado.get(
-                    "motivo_aclaracion",
-                    ""
-                )
-                or ""
-            ).strip()
-
-            productos = pedido_interpretado.get(
-                "productos",
-                []
-            )
-
-            # =====================================================
-            # 20.11.1.1 - PEDIDO QUE NECESITA ACLARACIÓN
-            # =====================================================
-
-            if es_pedido and necesita_aclaracion:
-
-                print(
-                    "⚠️ Pedido incompleto. "
-                    "Motivo:",
-                    motivo_aclaracion
-                )
-
-                if motivo_aclaracion:
-
-                    enviar_mensaje(
-                        numero_cliente,
-                        (
-                            "⚠️ Para completar tu pedido "
-                            "necesito un dato más.\n\n"
-                            f"{motivo_aclaracion}\n\n"
-                            "Escríbeme el dato que falta "
-                            "y continuaré con tu pedido."
-                        )
-                    )
-
-                else:
-
-                    enviar_mensaje(
-                        numero_cliente,
-                        (
-                            "⚠️ No pude identificar "
-                            "completamente tu pedido.\n\n"
-                            "Por favor indícame:\n"
-                            "• Producto\n"
-                            "• Cantidad\n"
-                            "• Talla\n"
-                            "• Color\n\n"
-                            "Ejemplo:\n"
-                            "1 legging negro talla 4"
-                        )
-                    )
-
-                # -------------------------------------------------
-                # Mantener al cliente dentro del flujo de pedido.
-                # No borrar la cotización existente.
-                # -------------------------------------------------
-
-                ESTADO_CLIENTES[
-                    numero_cliente
-                ] = "esperando_pedido"
-
-                return "EVENT_RECEIVED", 200
-
-            # =====================================================
-            # 20.11.1.2 - MENSAJE QUE NO ES UN PEDIDO
-            # =====================================================
 
             if not es_pedido:
 
@@ -2640,33 +2583,22 @@ def recibir_mensaje():
 
                 return "EVENT_RECEIVED", 200
 
-            # =====================================================
-            # 20.11.1.3 - PEDIDO SIN PRODUCTOS IDENTIFICADOS
-            # =====================================================
+            productos = pedido_interpretado.get(
+                "productos",
+                []
+            )
 
             if not productos:
-
-                print(
-                    "⚠️ La IA detectó intención de pedido "
-                    "pero no identificó productos."
-                )
-
-                ESTADO_CLIENTES[
-                    numero_cliente
-                ] = "esperando_pedido"
 
                 enviar_mensaje(
                     numero_cliente,
                     (
-                        "⚠️ No pude identificar completamente "
-                        "tu pedido.\n\n"
-                        "Por favor escríbeme nuevamente "
-                        "indicando producto, cantidad, talla "
-                        "y color.\n\n"
-                        "Ejemplo:\n"
-                        "1 legging negro talla 4"
+                        "❌ No pude identificar correctamente "
+                        "los productos de tu pedido.\n\n"
+                        "Escríbelo nuevamente indicando "
+                        "producto, cantidad, talla y color."
                     )
-                 )
+                )
 
                 return "EVENT_RECEIVED", 200
 
@@ -2893,60 +2825,14 @@ def recibir_mensaje():
 
             return "EVENT_RECEIVED", 200
 
-
-    # =========================================================
-    # 21 - MANEJO GENERAL DE ERRORES
-    # =========================================================
     except Exception as error:
+
         print(
             "Error procesando el mensaje:",
             error
         )
 
-        mensaje_error = str(error)
-
-        # =====================================================
-        # 21.1 - ERROR DE CUOTA DE IA
-        # =====================================================
-
-        if mensaje_error == "CUOTA_IA_AGOTADA":
-
-            enviar_mensaje(
-                numero_cliente,
-                (
-                    "⏳ En este momento el asistente está "
-                    "procesando muchos pedidos.\n\n"
-                    "Por favor, vuelve a enviarme tu pedido "
-                    "en unos minutos."
-                )
-            )
-
-            return "EVENT_RECEIVED", 200
-
-        # =====================================================
-        # 21.2 - OTROS ERRORES
-        # =====================================================
-
-        enviar_mensaje(
-            numero_cliente,
-            (
-                "⚠️ No pude procesar tu mensaje correctamente.\n\n"
-                "Por favor, vuelve a enviarme tu pedido.\n\n"
-                "Ejemplo:\n"
-                "1 legging negro talla 4"
-            )
-        )
-
         return "EVENT_RECEIVED", 200
-
-    #except Exception as error:
-
-        #print(
-            #"Error procesando el mensaje:",
-            #error
-        #)
-
-        #return "EVENT_RECEIVED", 200
 
 
 # =========================================================
