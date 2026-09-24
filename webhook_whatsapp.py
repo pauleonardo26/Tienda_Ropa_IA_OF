@@ -2528,32 +2528,9 @@ def recibir_mensaje():
                 pedido_interpretado
             )
 
-            # -----------------------------------------------------
-            # 20.11.1 - GEMINI TEMPORALMENTE SATURADO
-            # -----------------------------------------------------
-
-            if pedido_interpretado.get(
-                "error_temporal"
-            ):
-
-                enviar_mensaje(
-                    numero_cliente,
-                    (
-                        "⏳ Estoy teniendo una pequeña demora "
-                        "para revisar tu pedido.\n\n"
-                        "Por favor, vuelve a enviarlo "
-                        "en unos segundos."
-                    )
-                )
-
-                return "EVENT_RECEIVED", 200
-
-
-
-
 
             # -----------------------------------------------------
-            # 20.11.2 - PEDIDO INCOMPLETO / CONSULTA
+            # 20.11.1 - PEDIDO INCOMPLETO / CONSULTA
             # -----------------------------------------------------
 
             es_pedido = pedido_interpretado.get(
@@ -2580,7 +2557,7 @@ def recibir_mensaje():
             )
 
             # =====================================================
-            # 20.11.2.1 - PEDIDO QUE NECESITA ACLARACIÓN
+            # 20.11.2  - PEDIDO QUE NECESITA ACLARACIÓN
             # =====================================================
 
             if es_pedido and necesita_aclaracion:
