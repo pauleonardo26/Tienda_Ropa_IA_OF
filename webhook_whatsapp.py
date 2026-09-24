@@ -2666,6 +2666,7 @@ def recibir_mensaje():
                         "Ejemplo:\n"
                         "1 legging negro talla 4"
                     )
+                 )
 
                 return "EVENT_RECEIVED", 200
 
