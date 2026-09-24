@@ -1215,21 +1215,41 @@ def validar_pedido_postgresql(pedido_interpretado):
     total = 0
 
     mapa_productos = {
-        "legging": "Leggins Niña",
-        "leggins": "Leggins Niña",
-        "leggings": "Leggins Niña",
+        # ---------------------------------------------------------
+        # LEGGINS
+        # ---------------------------------------------------------
+        "legging":
+            "Leggins Niña",
 
+        "leggins":
+            "Leggins Niña",
+
+        "leggings":
+            "Leggins Niña",
+
+        "legging niña":
+            "Leggins Niña",
+
+        "leggins niña":
+            "Leggins Niña",
+
+        "leggings niña":
+            "Leggins Niña",
+
+        # ---------------------------------------------------------
+        # POLO MANGA CORTA
+        # ---------------------------------------------------------
         "polo manga corta pequeño":
+            "Polo Niña Manga Corta Pequeño",
+
+        "polo niña manga corta pequeño":
             "Polo Niña Manga Corta Pequeño",
 
         "polo manga corta grande":
             "Polo Niña Manga Corta Grande",
 
-        "polo manga larga pequeño":
-            "Polo Niña Manga Larga Pequeño",
-
-        "polo manga larga grande":
-            "Polo Niña Manga Larga Grande",
+        "polo niña manga corta grande":
+            "Polo Niña Manga Corta Grande",
 
         "polo manga corta":
             "POLO_MANGA_CORTA",
@@ -1237,12 +1257,28 @@ def validar_pedido_postgresql(pedido_interpretado):
         "polo m/c":
             "POLO_MANGA_CORTA",
 
+        # ---------------------------------------------------------
+        # POLO MANGA LARGA
+        # ---------------------------------------------------------
+        "polo manga larga pequeño":
+            "Polo Niña Manga Larga Pequeño",
+
+        "polo niña manga larga pequeño":
+            "Polo Niña Manga Larga Pequeño",
+
+        "polo manga larga grande":
+            "Polo Niña Manga Larga Grande",
+
+        "polo niña manga larga grande":
+            "Polo Niña Manga Larga Grande",
+
         "polo manga larga":
             "POLO_MANGA_LARGA",
 
         "polo m/l":
             "POLO_MANGA_LARGA"
     }
+
 
     cursor = conexion.cursor()
 
