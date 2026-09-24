@@ -2529,6 +2529,7 @@ def recibir_mensaje():
             )
 
 
+
             # -----------------------------------------------------
             # 20.11.1 - PEDIDO INCOMPLETO / CONSULTA
             # -----------------------------------------------------
@@ -2557,7 +2558,7 @@ def recibir_mensaje():
             )
 
             # =====================================================
-            # 20.11.2  - PEDIDO QUE NECESITA ACLARACIÓN
+            # 20.11.1.1 - PEDIDO QUE NECESITA ACLARACIÓN
             # =====================================================
 
             if es_pedido and necesita_aclaracion:
@@ -2599,9 +2600,8 @@ def recibir_mensaje():
                     )
 
                 # -------------------------------------------------
-                # IMPORTANTE:
-                # El cliente continúa dentro del flujo de pedido.
-                # No se borra la cotización existente.
+                # Mantener al cliente dentro del flujo de pedido.
+                # No borrar la cotización existente.
                 # -------------------------------------------------
 
                 ESTADO_CLIENTES[
@@ -2611,7 +2611,7 @@ def recibir_mensaje():
                 return "EVENT_RECEIVED", 200
 
             # =====================================================
-            # 20.11.2.2 - MENSAJE QUE NO ES UN PEDIDO
+            # 20.11.1.2 - MENSAJE QUE NO ES UN PEDIDO
             # =====================================================
 
             if not es_pedido:
@@ -2641,7 +2641,7 @@ def recibir_mensaje():
                 return "EVENT_RECEIVED", 200
 
             # =====================================================
-            # 20.11.2.3 - PEDIDO SIN PRODUCTOS IDENTIFICADOS
+            # 20.11.1.3 - PEDIDO SIN PRODUCTOS IDENTIFICADOS
             # =====================================================
 
             if not productos:
