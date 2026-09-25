@@ -688,8 +688,11 @@ def enviar_tarjeta_legging(numero_destino):
         opciones
     )
 
-
 def enviar_polo_mc_pequeno(numero_destino):
+
+    PRODUCTO_SELECCIONADO_CLIENTES[
+        numero_destino
+    ] = "Polo Niña Manga Corta Pequeño"
 
     imagen_url = (
         "https://pub-9aa04db1bd594751a5b8fb2654da15fd.r2.dev/"
@@ -730,8 +733,11 @@ def enviar_polo_mc_pequeno(numero_destino):
         opciones
     )
 
-
 def enviar_polo_mc_grande(numero_destino):
+
+    PRODUCTO_SELECCIONADO_CLIENTES[
+        numero_destino
+    ] = "Polo Niña Manga Corta Grande"
 
     imagen_url = (
         "https://pub-9aa04db1bd594751a5b8fb2654da15fd.r2.dev/"
@@ -775,6 +781,10 @@ def enviar_polo_mc_grande(numero_destino):
 
 def enviar_polo_ml_pequeno(numero_destino):
 
+    PRODUCTO_SELECCIONADO_CLIENTES[
+        numero_destino
+    ] = "Polo Niña Manga Larga Pequeño"
+
     imagen_url = (
         "https://pub-9aa04db1bd594751a5b8fb2654da15fd.r2.dev/"
         "productos/polo_nina_manga_larga_pequeno.png"
@@ -814,8 +824,11 @@ def enviar_polo_ml_pequeno(numero_destino):
         opciones
     )
 
-
 def enviar_polo_ml_grande(numero_destino):
+
+    PRODUCTO_SELECCIONADO_CLIENTES[
+        numero_destino
+    ] = "Polo Niña Manga Larga Grande"
 
     imagen_url = (
         "https://pub-9aa04db1bd594751a5b8fb2654da15fd.r2.dev/"
