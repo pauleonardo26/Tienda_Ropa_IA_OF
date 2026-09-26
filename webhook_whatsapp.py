@@ -2573,19 +2573,25 @@ def recibir_mensaje():
                 numero_cliente,
                 "⏳ Un momento, estoy revisando tu pedido..."
             )
-
+            
             # -----------------------------------------------------
             # 20.11.0 - PRODUCTO DEFINIDO POR LA TARJETA
             # -----------------------------------------------------
-
-            pedido_interpretado = interpretar_pedido(
-                texto_cliente
-            )
 
             producto_seleccionado = (
                 PRODUCTO_SELECCIONADO_CLIENTES.get(
                     numero_cliente
                 )
+            )
+
+            print(
+                "Producto seleccionado antes de Gemini:",
+                producto_seleccionado
+            )
+
+            pedido_interpretado = interpretar_pedido(
+                texto_cliente,
+                producto_seleccionado
             )
 
             if producto_seleccionado:
@@ -2603,11 +2609,6 @@ def recibir_mensaje():
                     "Producto definido por tarjeta:",
                     producto_seleccionado
                 )
-
-            print(
-                "Pedido interpretado:",
-                pedido_interpretado
-            )
 
             # -----------------------------------------------------
             # 20.11.1 - GEMINI TEMPORALMENTE SATURADO
