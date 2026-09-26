@@ -23,25 +23,6 @@ from pedido_carrito import (
     construir_mensaje_cotizacion
 )
 
-from botones import (
-    enviar_botones_continuar_finalizar,
-    enviar_botones_confirmacion,
-    registrar_botones_activos,
-    boton_esta_activo,
-    invalidar_botones,
-    consumir_boton
-)
-
-from sesion import (
-    iniciar_sesion,
-    registrar_actividad,
-    verificar_y_expirar,
-    esta_esperando_catalogo,
-    permitir_catalogo,
-    limpiar_sesion
-)
-
-
 
 # =========================================================
 # 01 - CONFIGURACION GENERAL Y ESTADO DE CLIENTES
@@ -54,6 +35,8 @@ app = Flask(__name__)
 MENSAJES_PROCESADOS = {}
 ESTADO_CLIENTES = {}
 COTIZACIONES_CLIENTES = {}
+# Producto seleccionado desde la tarjeta del catálogo
+PRODUCTO_SELECCIONADO_CLIENTES = {}
 
 ACCESS_TOKEN = WHATSAPP_TOKEN
 PHONE_NUMBER_ID = WHATSAPP_PHONE_NUMBER_ID
@@ -118,12 +101,156 @@ def enviar_mensaje(numero_destino, mensaje):
 # 04 - BOTONES CONTINUAR / FINALIZAR PEDIDO
 # =========================================================
 
+def enviar_botones_continuar_finalizar(numero_destino):
+
+    print(
+        "Enviando botones CONTINUAR / FINALIZAR a:",
+        numero_destino
+    )
+
+    url = (
+        f"https://graph.facebook.com/v26.0/"
+        f"{PHONE_NUMBER_ID}/messages"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    destino = obtener_destino_whatsapp(numero_destino)
+
+    datos = {
+        "messaging_product": "whatsapp",
+        **destino,
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {
+                "text": (
+                    "¿Deseas agregar otro producto "
+                    "o finalizar tu pedido?"
+                )
+            },
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "continuar_pedido",
+                            "title": "➕ CONTINUAR PEDIDO"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "finalizar_pedido",
+                            "title": "✅ FINALIZAR PEDIDO"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+
+    respuesta = requests.post(
+        url,
+        headers=headers,
+        json=datos,
+        timeout=30
+    )
+
+    print(
+        "Código botones continuar/finalizar:",
+        respuesta.status_code
+    )
+
+    print(
+        "Respuesta botones continuar/finalizar:",
+        respuesta.text
+    )
+
+    respuesta.raise_for_status()
 
 
 # =========================================================
 # 05 - BOTONES CONFIRMAR / CORREGIR / CANCELAR
 # =========================================================
 
+def enviar_botones_confirmacion(numero_destino):
+
+    print(
+        "Enviando botones de confirmación a:",
+        numero_destino
+    )
+
+    url = (
+        f"https://graph.facebook.com/v26.0/"
+        f"{PHONE_NUMBER_ID}/messages"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    destino = obtener_destino_whatsapp(numero_destino)
+
+    datos = {
+        "messaging_product": "whatsapp",
+        **destino,
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {
+                "text": "¿Qué deseas hacer con tu pedido?"
+            },
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "confirmar_pedido",
+                            "title": "✅ CONFIRMAR"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "corregir_pedido",
+                            "title": "✏️ CORREGIR"
+                        }
+                    },
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "cancelar_pedido",
+                            "title": "❌ CANCELAR"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+
+    respuesta = requests.post(
+        url,
+        headers=headers,
+        json=datos,
+        timeout=30
+    )
+
+    print(
+        "Código botones confirmación:",
+        respuesta.status_code
+    )
+
+    print(
+        "Respuesta botones confirmación:",
+        respuesta.text
+    )
+
+    respuesta.raise_for_status()
 
 
 # =========================================================
@@ -198,11 +325,6 @@ def enviar_tarjeta_bienvenida(numero_destino):
     print("Respuesta Tarjeta 1:", respuesta.text)
 
     respuesta.raise_for_status()
-
-    registrar_botones_activos(
-        numero_destino,
-        ["catalogo_nino", "catalogo_nina"]
-    )
 
 
 # =========================================================
@@ -312,19 +434,6 @@ def enviar_tarjeta_nina(numero_destino):
 
     respuesta.raise_for_status()
 
-    registrar_botones_activos(
-        numero_destino,
-        [
-            "nina_legging",
-            "nina_polo_mc_pequeno",
-            "nina_polo_mc_grande",
-            "nina_polo_ml_pequeno",
-            "nina_polo_ml_grande",
-            "catalogo_nino",
-            "hacer_pedido"
-        ]
-    )
-
 
 # =========================================================
 # 08 - TARJETA 3 - ROPA PARA NIÑO
@@ -419,17 +528,6 @@ def enviar_tarjeta_nino(numero_destino):
     print("Respuesta menú niño:", respuesta.text)
 
     respuesta.raise_for_status()
-
-    registrar_botones_activos(
-        numero_destino,
-        [
-            "nino_polos",
-            "nino_joggers",
-            "nino_conjunto",
-            "catalogo_nina",
-            "hacer_pedido"
-        ]
-    )
 
 
 # =========================================================
@@ -540,17 +638,16 @@ def enviar_tarjeta_producto_nina(
 
         respuesta_botones.raise_for_status()
 
-    registrar_botones_activos(
-        numero_destino,
-        [opcion["id"] for opcion in opciones]
-    )
-
 
 # =========================================================
 # 10 - PRODUCTOS NIÑA
 # =========================================================
 
 def enviar_tarjeta_legging(numero_destino):
+    
+    PRODUCTO_SELECCIONADO_CLIENTES[
+        numero_destino
+    ] = "Leggins Niña"
 
     imagen_url = (
         "https://pub-9aa04db1bd594751a5b8fb2654da15fd.r2.dev/"
@@ -591,8 +688,11 @@ def enviar_tarjeta_legging(numero_destino):
         opciones
     )
 
-
 def enviar_polo_mc_pequeno(numero_destino):
+
+    PRODUCTO_SELECCIONADO_CLIENTES[
+        numero_destino
+    ] = "Polo Niña Manga Corta Pequeño"
 
     imagen_url = (
         "https://pub-9aa04db1bd594751a5b8fb2654da15fd.r2.dev/"
@@ -633,8 +733,11 @@ def enviar_polo_mc_pequeno(numero_destino):
         opciones
     )
 
-
 def enviar_polo_mc_grande(numero_destino):
+
+    PRODUCTO_SELECCIONADO_CLIENTES[
+        numero_destino
+    ] = "Polo Niña Manga Corta Grande"
 
     imagen_url = (
         "https://pub-9aa04db1bd594751a5b8fb2654da15fd.r2.dev/"
@@ -678,6 +781,10 @@ def enviar_polo_mc_grande(numero_destino):
 
 def enviar_polo_ml_pequeno(numero_destino):
 
+    PRODUCTO_SELECCIONADO_CLIENTES[
+        numero_destino
+    ] = "Polo Niña Manga Larga Pequeño"
+
     imagen_url = (
         "https://pub-9aa04db1bd594751a5b8fb2654da15fd.r2.dev/"
         "productos/polo_nina_manga_larga_pequeno.png"
@@ -717,8 +824,11 @@ def enviar_polo_ml_pequeno(numero_destino):
         opciones
     )
 
-
 def enviar_polo_ml_grande(numero_destino):
+
+    PRODUCTO_SELECCIONADO_CLIENTES[
+        numero_destino
+    ] = "Polo Niña Manga Larga Grande"
 
     imagen_url = (
         "https://pub-9aa04db1bd594751a5b8fb2654da15fd.r2.dev/"
@@ -969,6 +1079,58 @@ def enviar_tarjeta_pago_pedido(numero_destino):
 # 16 - BOTON CORREGIR DESPUES DE PAGO
 # =========================================================
 
+def enviar_boton_corregir_pago(numero_destino):
+
+    url = (
+        f"https://graph.facebook.com/v26.0/"
+        f"{PHONE_NUMBER_ID}/messages"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    destino = obtener_destino_whatsapp(numero_destino)
+
+    datos = {
+        "messaging_product": "whatsapp",
+        **destino,
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {
+                "text": "¿Necesitas modificar tu pedido?"
+            },
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": "corregir_pedido",
+                            "title": "✏️ CORREGIR PEDIDO"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+
+    respuesta = requests.post(
+        url,
+        headers=headers,
+        json=datos,
+        timeout=30
+    )
+
+    print(
+        "Botón corregir pedido:",
+        respuesta.status_code
+    )
+
+    print(respuesta.text)
+
+    respuesta.raise_for_status()
 
 
 # =========================================================
@@ -1066,21 +1228,41 @@ def validar_pedido_postgresql(pedido_interpretado):
     total = 0
 
     mapa_productos = {
-        "legging": "Leggins Niña",
-        "leggins": "Leggins Niña",
-        "leggings": "Leggins Niña",
+        # ---------------------------------------------------------
+        # LEGGINS
+        # ---------------------------------------------------------
+        "legging":
+            "Leggins Niña",
 
+        "leggins":
+            "Leggins Niña",
+
+        "leggings":
+            "Leggins Niña",
+
+        "legging niña":
+            "Leggins Niña",
+
+        "leggins niña":
+            "Leggins Niña",
+
+        "leggings niña":
+            "Leggins Niña",
+
+        # ---------------------------------------------------------
+        # POLO MANGA CORTA
+        # ---------------------------------------------------------
         "polo manga corta pequeño":
+            "Polo Niña Manga Corta Pequeño",
+
+        "polo niña manga corta pequeño":
             "Polo Niña Manga Corta Pequeño",
 
         "polo manga corta grande":
             "Polo Niña Manga Corta Grande",
 
-        "polo manga larga pequeño":
-            "Polo Niña Manga Larga Pequeño",
-
-        "polo manga larga grande":
-            "Polo Niña Manga Larga Grande",
+        "polo niña manga corta grande":
+            "Polo Niña Manga Corta Grande",
 
         "polo manga corta":
             "POLO_MANGA_CORTA",
@@ -1088,12 +1270,28 @@ def validar_pedido_postgresql(pedido_interpretado):
         "polo m/c":
             "POLO_MANGA_CORTA",
 
+        # ---------------------------------------------------------
+        # POLO MANGA LARGA
+        # ---------------------------------------------------------
+        "polo manga larga pequeño":
+            "Polo Niña Manga Larga Pequeño",
+
+        "polo niña manga larga pequeño":
+            "Polo Niña Manga Larga Pequeño",
+
+        "polo manga larga grande":
+            "Polo Niña Manga Larga Grande",
+
+        "polo niña manga larga grande":
+            "Polo Niña Manga Larga Grande",
+
         "polo manga larga":
             "POLO_MANGA_LARGA",
 
         "polo m/l":
             "POLO_MANGA_LARGA"
     }
+
 
     cursor = conexion.cursor()
 
@@ -1709,25 +1907,6 @@ def recibir_mensaje():
 
         if tipo_mensaje == "interactive":
 
-            if verificar_y_expirar(
-                numero_cliente,
-                ESTADO_CLIENTES,
-                COTIZACIONES_CLIENTES
-            ):
-
-                enviar_mensaje(
-                    numero_cliente,
-                    (
-                        "⏰ *SESIÓN FINALIZADA*\n\n"
-                        "Han pasado más de 5 minutos sin continuar "
-                        "con el pedido.\n\n"
-                        "Se borró la sesión anterior por seguridad.\n\n"
-                        "Escribe *CATÁLOGO* para comenzar nuevamente."
-                    )
-                )
-
-                return "EVENT_RECEIVED", 200
-
             interactive = mensaje.get(
                 "interactive",
                 {}
@@ -1766,37 +1945,10 @@ def recibir_mensaje():
                 )
 
                 # -------------------------------------------------
-                # BLOQUEO DE BOTONES ANTIGUOS
-                # -------------------------------------------------
-
-                if not boton_esta_activo(
-                    numero_cliente,
-                    boton_id
-                ):
-
-                    enviar_mensaje(
-                        numero_cliente,
-                        (
-                            "⚠️ Este botón ya no está activo.\n\n"
-                            "La conversación avanzó a otra etapa.\n\n"
-                            "Escribe *CATÁLOGO* para comenzar nuevamente."
-                        )
-                    )
-
-                    return "EVENT_RECEIVED", 200
-
-                # Al aceptar un botón, todos los botones de la
-                # etapa anterior quedan inválidos.
-                invalidar_botones(numero_cliente)
-                consumir_boton(numero_cliente, boton_id)
-
-                # -------------------------------------------------
                 # 20.5.1 - CATALOGO NIÑA
                 # -------------------------------------------------
 
                 if boton_id == "catalogo_nina":
-
-                    registrar_actividad(numero_cliente)
 
                     enviar_tarjeta_nina(
                         numero_cliente
@@ -1810,8 +1962,6 @@ def recibir_mensaje():
 
                 if boton_id == "catalogo_nino":
 
-                    registrar_actividad(numero_cliente)
-
                     enviar_tarjeta_nino(
                         numero_cliente
                     )
@@ -1823,8 +1973,6 @@ def recibir_mensaje():
                 # -------------------------------------------------
 
                 if boton_id == "nina_legging":
-
-                    registrar_actividad(numero_cliente)
 
                     enviar_tarjeta_legging(
                         numero_cliente
@@ -1838,8 +1986,6 @@ def recibir_mensaje():
 
                 if boton_id == "nina_polo_mc_pequeno":
 
-                    registrar_actividad(numero_cliente)
-
                     enviar_polo_mc_pequeno(
                         numero_cliente
                     )
@@ -1851,8 +1997,6 @@ def recibir_mensaje():
                 # -------------------------------------------------
 
                 if boton_id == "nina_polo_mc_grande":
-
-                    registrar_actividad(numero_cliente)
 
                     enviar_polo_mc_grande(
                         numero_cliente
@@ -1866,8 +2010,6 @@ def recibir_mensaje():
 
                 if boton_id == "nina_polo_ml_pequeno":
 
-                    registrar_actividad(numero_cliente)
-
                     enviar_polo_ml_pequeno(
                         numero_cliente
                     )
@@ -1879,8 +2021,6 @@ def recibir_mensaje():
                 # -------------------------------------------------
 
                 if boton_id == "nina_polo_ml_grande":
-
-                    registrar_actividad(numero_cliente)
 
                     enviar_polo_ml_grande(
                         numero_cliente
@@ -1944,7 +2084,6 @@ def recibir_mensaje():
                     ESTADO_CLIENTES[
                         numero_cliente
                     ] = "seleccionando_producto"
-                    registrar_actividad(numero_cliente)
 
                     enviar_mensaje(
                         numero_cliente,
@@ -1991,7 +2130,6 @@ def recibir_mensaje():
                     ESTADO_CLIENTES[
                         numero_cliente
                     ] = "cotizacion_lista"
-                    registrar_actividad(numero_cliente)
 
                     enviar_mensaje(
                         numero_cliente,
@@ -2042,11 +2180,6 @@ def recibir_mensaje():
                         return "EVENT_RECEIVED", 200
 
                     cotizacion["confirmado"] = True
-
-                    ESTADO_CLIENTES[
-                        numero_cliente
-                    ] = "esperando_pago"
-                    registrar_actividad(numero_cliente)
 
                     enviar_tarjeta_pago_pedido(
                         numero_cliente
@@ -2132,7 +2265,6 @@ def recibir_mensaje():
                         ESTADO_CLIENTES[
                             numero_cliente
                         ] = "esperando_pedido"
-                        registrar_actividad(numero_cliente)
 
                         cantidad_productos = len(
                             cotizacion_existente.get(
@@ -2164,7 +2296,6 @@ def recibir_mensaje():
                         ESTADO_CLIENTES[
                             numero_cliente
                         ] = "esperando_pedido"
-                        registrar_actividad(numero_cliente)
 
                         enviar_mensaje(
                             numero_cliente,
@@ -2208,32 +2339,7 @@ def recibir_mensaje():
                     opcion_titulo
                 )
 
-                # -------------------------------------------------
-                # BLOQUEO DE LISTAS ANTIGUAS
-                # -------------------------------------------------
-
-                if not boton_esta_activo(
-                    numero_cliente,
-                    opcion_id
-                ):
-
-                    enviar_mensaje(
-                        numero_cliente,
-                        (
-                            "⚠️ Esta opción ya no está activa.\n\n"
-                            "La conversación avanzó a otra etapa.\n\n"
-                            "Escribe *CATÁLOGO* para comenzar nuevamente."
-                        )
-                    )
-
-                    return "EVENT_RECEIVED", 200
-
-                invalidar_botones(numero_cliente)
-                consumir_boton(numero_cliente, opcion_id)
-
                 if opcion_id == "nina_legging":
-
-                    registrar_actividad(numero_cliente)
 
                     enviar_tarjeta_legging(
                         numero_cliente
@@ -2243,8 +2349,6 @@ def recibir_mensaje():
 
                 if opcion_id == "nina_polo_mc_pequeno":
 
-                    registrar_actividad(numero_cliente)
-
                     enviar_polo_mc_pequeno(
                         numero_cliente
                     )
@@ -2252,8 +2356,6 @@ def recibir_mensaje():
                     return "EVENT_RECEIVED", 200
 
                 if opcion_id == "nina_polo_mc_grande":
-
-                    registrar_actividad(numero_cliente)
 
                     enviar_polo_mc_grande(
                         numero_cliente
@@ -2263,8 +2365,6 @@ def recibir_mensaje():
 
                 if opcion_id == "nina_polo_ml_pequeno":
 
-                    registrar_actividad(numero_cliente)
-
                     enviar_polo_ml_pequeno(
                         numero_cliente
                     )
@@ -2272,8 +2372,6 @@ def recibir_mensaje():
                     return "EVENT_RECEIVED", 200
 
                 if opcion_id == "nina_polo_ml_grande":
-
-                    registrar_actividad(numero_cliente)
 
                     enviar_polo_ml_grande(
                         numero_cliente
@@ -2283,8 +2381,6 @@ def recibir_mensaje():
 
                 if opcion_id == "catalogo_nino":
 
-                    registrar_actividad(numero_cliente)
-
                     enviar_tarjeta_nino(
                         numero_cliente
                     )
@@ -2292,8 +2388,6 @@ def recibir_mensaje():
                     return "EVENT_RECEIVED", 200
 
                 if opcion_id == "catalogo_nina":
-
-                    registrar_actividad(numero_cliente)
 
                     enviar_tarjeta_nina(
                         numero_cliente
@@ -2318,7 +2412,6 @@ def recibir_mensaje():
                         ESTADO_CLIENTES[
                             numero_cliente
                         ] = "esperando_pedido"
-                        registrar_actividad(numero_cliente)
 
                         cantidad_productos = len(
                             cotizacion_existente.get(
@@ -2350,7 +2443,6 @@ def recibir_mensaje():
                         ESTADO_CLIENTES[
                             numero_cliente
                         ] = "esperando_pedido"
-                        registrar_actividad(numero_cliente)
 
                         enviar_mensaje(
                             numero_cliente,
@@ -2442,14 +2534,14 @@ def recibir_mensaje():
             "catálogo"
         ]:
 
-            limpiar_sesion(
+            ESTADO_CLIENTES.pop(
                 numero_cliente,
-                ESTADO_CLIENTES,
-                COTIZACIONES_CLIENTES
+                None
             )
 
-            permitir_catalogo(
-                numero_cliente
+            COTIZACIONES_CLIENTES.pop(
+                numero_cliente,
+                None
             )
 
             enviar_tarjeta_bienvenida(
@@ -2457,52 +2549,6 @@ def recibir_mensaje():
             )
 
             return "EVENT_RECEIVED", 200
-
-        # =========================================================
-        # 20.10.1 - VERIFICAR EXPIRACIÓN DE SESIÓN
-        # =========================================================
-
-        if verificar_expiracion_pedido(
-            numero_cliente
-        ):
-
-            enviar_mensaje(
-                numero_cliente,
-                (
-                    "⏰ *SESIÓN FINALIZADA*\n\n"
-                    "Han pasado más de 5 minutos sin continuar "
-                    "con el pedido.\n\n"
-                    "Se borró la sesión anterior por seguridad.\n\n"
-                    "Escribe *CATÁLOGO* para comenzar nuevamente."
-                )
-            )
-
-            return "EVENT_RECEIVED", 200
-
-        if esta_esperando_catalogo(numero_cliente):
-
-            enviar_mensaje(
-                numero_cliente,
-                (
-                    "⏰ La sesión anterior ya terminó.\n\n"
-                    "Para comenzar una nueva sesión escribe "
-                    "*CATÁLOGO*."
-                )
-            )
-
-            return "EVENT_RECEIVED", 200
-
-        estado_actual = ESTADO_CLIENTES.get(
-            numero_cliente
-        )
-
-        if estado_actual in [
-            "esperando_pedido",
-            "seleccionando_producto",
-            "cotizacion_lista",
-            "esperando_pago"
-        ]:
-            registrar_actividad(numero_cliente)
 
         # =========================================================
         # 20.11 - PROCESAR PEDIDO / AGREGAR AL CARRITO
@@ -2522,15 +2568,41 @@ def recibir_mensaje():
                 "Pedido escrito:",
                 texto_cliente
             )
-
+            
             enviar_mensaje(
                 numero_cliente,
                 "⏳ Un momento, estoy revisando tu pedido..."
             )
 
+            # -----------------------------------------------------
+            # 20.11.0 - PRODUCTO DEFINIDO POR LA TARJETA
+            # -----------------------------------------------------
+
             pedido_interpretado = interpretar_pedido(
                 texto_cliente
             )
+
+            producto_seleccionado = (
+                PRODUCTO_SELECCIONADO_CLIENTES.get(
+                    numero_cliente
+                )
+            )
+
+            if producto_seleccionado:
+
+                for item in pedido_interpretado.get(
+                    "productos",
+                    []
+                ):
+
+                    item["producto"] = (
+                        producto_seleccionado
+                    )
+
+                print(
+                    "Producto definido por tarjeta:",
+                    producto_seleccionado
+                )
 
             print(
                 "Pedido interpretado:",
@@ -2722,7 +2794,6 @@ def recibir_mensaje():
             ESTADO_CLIENTES[
                 numero_cliente
             ] = "cotizacion_lista"
-            registrar_actividad(numero_cliente)
 
             # -----------------------------------------------------
             # 20.11.8 - MOSTRAR COTIZACION ACUMULADA
