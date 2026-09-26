@@ -83,16 +83,70 @@ def generar_con_reintentos(prompt, esquema, max_intentos=3):
 
     return None
 
-
 # =========================================================
 # 21 - INTERPRETAR PEDIDO DEL CLIENTE CON GEMINI
 # =========================================================
 
-def interpretar_pedido(mensaje_cliente):
+def interpretar_pedido(
+    mensaje_cliente,
+    producto_seleccionado=None
+):
 
     prompt = construir_prompt_pedido(
         mensaje_cliente
     )
+
+    # -----------------------------------------------------
+    # 21.1 - PRODUCTO DEFINIDO DESDE LA TARJETA
+    # -----------------------------------------------------
+
+    if producto_seleccionado:
+
+        prompt += f"""
+
+=========================================================
+PRODUCTO YA SELECCIONADO DESDE LA TARJETA DEL CATÁLOGO
+=========================================================
+
+El cliente ya seleccionó previamente este producto:
+
+PRODUCTO:
+{producto_seleccionado}
+
+IMPORTANTE:
+
+- NO necesitas identificar el producto.
+- NO cambies el producto seleccionado.
+- NO inventes otro producto.
+- El producto seleccionado por la tarjeta es definitivo.
+- El mensaje del cliente contiene únicamente los datos
+  que necesita el pedido: cantidad, talla y color.
+- Interpreta correctamente cantidades, tallas y colores.
+- Si el cliente escribe solamente:
+  "1 talla 4 negro"
+  debes entender:
+  cantidad = 1
+  talla = 4
+  color = negro
+  producto = {producto_seleccionado}
+
+- Si escribe:
+  "2 talla 4 y 6 negro y verde"
+  debes interpretar las cantidades, tallas y colores
+  según correspondan al pedido.
+- Si escribe:
+  "uno talla 4 verde"
+  debes interpretar:
+  cantidad = 1
+  talla = 4
+  color = verde
+  producto = {producto_seleccionado}
+
+El campo "producto" de TODOS los elementos de
+"productos" debe ser exactamente:
+
+{producto_seleccionado}
+"""
 
     esquema = {
         "type": "object",
@@ -162,6 +216,21 @@ def interpretar_pedido(mensaje_cliente):
             "productos": [],
             "error_temporal": True
         }
+
+    # -----------------------------------------------------
+    # 21.2 - FORZAR PRODUCTO DE LA TARJETA
+    # -----------------------------------------------------
+
+    if producto_seleccionado:
+
+        for item in datos.get(
+            "productos",
+            []
+        ):
+
+            item["producto"] = (
+                producto_seleccionado
+            )
 
     datos["error_temporal"] = False
 
