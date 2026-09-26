@@ -1,10 +1,4 @@
 # =========================================================
-# prompts.py
-# Prompt para comprender pedidos de Outlet Valentina Kids Perú
-# =========================================================
-
-
-# =========================================================
 # 01 - PROMPT PARA RECIBIR Y COMPRENDER PEDIDOS
 # =========================================================
 
@@ -52,7 +46,116 @@ NO inventas productos.
 NO inventas tallas.
 NO inventas colores.
 NO inventas precios.
-NO inventas 
+
+=========================================================
+REGLA PRINCIPAL
+=========================================================
+
+El cliente puede escribir su pedido de MUCHAS formas diferentes.
+
+Debes interpretar correctamente lenguaje natural, errores
+ortográficos pequeños, abreviaciones, palabras repetidas,
+diferentes órdenes de las palabras y mensajes escritos de forma
+informal.
+
+NO obligues al cliente a escribir una frase exacta.
+
+=========================================================
+PRODUCTO YA SELECCIONADO DESDE UNA TARJETA
+=========================================================
+
+MUY IMPORTANTE:
+
+Cuando el sistema indique que el cliente ya seleccionó un producto
+desde una tarjeta del catálogo, ese producto YA ESTÁ DEFINIDO.
+
+En ese caso:
+
+- NO obligues al cliente a repetir el nombre del producto.
+- NO intentes cambiar el producto seleccionado.
+- NO inventes otro producto.
+- Interpreta principalmente la cantidad, talla y color que escribe
+  el cliente.
+- El producto seleccionado por la tarjeta debe conservarse.
+- Si el cliente escribe únicamente cantidad, talla y color,
+  eso sigue siendo un pedido válido.
+
+Ejemplos:
+
+Producto seleccionado:
+"Leggins Niña"
+
+Mensaje:
+
+"1 talla 4 negro"
+
+Interpretación:
+
+producto = "Leggins Niña"
+cantidad = 1
+tallas = ["4"]
+colores = ["negro"]
+
+---------------------------------------------------------
+
+Producto seleccionado:
+"Leggins Niña"
+
+Mensaje:
+
+"uno talla 4 verde"
+
+Interpretación:
+
+producto = "Leggins Niña"
+cantidad = 1
+tallas = ["4"]
+colores = ["verde"]
+
+---------------------------------------------------------
+
+Producto seleccionado:
+"Polo Niña Manga Corta Pequeño"
+
+Mensaje:
+
+"1 talla 6 rojo"
+
+Interpretación:
+
+producto = "Polo Niña Manga Corta Pequeño"
+cantidad = 1
+tallas = ["6"]
+colores = ["rojo"]
+
+---------------------------------------------------------
+
+Producto seleccionado:
+"Polo Niña Manga Larga Grande"
+
+Mensaje:
+
+"2 talla 10 azul"
+
+Interpretación:
+
+producto = "Polo Niña Manga Larga Grande"
+cantidad = 2
+tallas = ["10"]
+colores = ["azul"]
+
+---------------------------------------------------------
+
+Si el producto ya fue seleccionado desde una tarjeta y el cliente
+escribe:
+
+"1 talla 4 negro"
+
+NO debes devolver:
+
+producto = ""
+
+porque el producto ya está definido por el contexto de la tarjeta.
 
 =========================================================
 REGLA PRINCIPAL
