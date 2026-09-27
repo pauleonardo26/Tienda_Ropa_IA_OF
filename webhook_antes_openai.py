@@ -4,10 +4,7 @@ import os
 import boto3
 
 from gemini import (
-    responder_con_gemini
-)
-
-from ia_openai import (
+    responder_con_gemini,
     interpretar_pedido
 )
 
@@ -57,7 +54,6 @@ app = Flask(__name__)
 MENSAJES_PROCESADOS = {}
 ESTADO_CLIENTES = {}
 COTIZACIONES_CLIENTES = {}
-PRODUCTO_SELECCIONADO_CLIENTES = {}
 
 ACCESS_TOKEN = WHATSAPP_TOKEN
 PHONE_NUMBER_ID = WHATSAPP_PHONE_NUMBER_ID
@@ -1073,7 +1069,6 @@ def validar_pedido_postgresql(pedido_interpretado):
         "legging": "Leggins Niña",
         "leggins": "Leggins Niña",
         "leggings": "Leggins Niña",
-        "legging niña": "Leggins Niña",
 
         "polo manga corta pequeño":
             "Polo Niña Manga Corta Pequeño",
@@ -1829,7 +1824,6 @@ def recibir_mensaje():
 
                 if boton_id == "nina_legging":
 
-                    PRODUCTO_SELECCIONADO_CLIENTES[numero_cliente] = "Legging Niña"
                     registrar_actividad(numero_cliente)
 
                     enviar_tarjeta_legging(
@@ -2239,7 +2233,6 @@ def recibir_mensaje():
 
                 if opcion_id == "nina_legging":
 
-                    PRODUCTO_SELECCIONADO_CLIENTES[numero_cliente] = "Legging Niña"
                     registrar_actividad(numero_cliente)
 
                     enviar_tarjeta_legging(
@@ -2533,28 +2526,12 @@ def recibir_mensaje():
                 "⏳ Un momento, estoy revisando tu pedido..."
             )
 
-            # -----------------------------------------------------
-            # 20.11.0 - PRODUCTO DEFINIDO POR LA TARJETA
-            # -----------------------------------------------------
-
-            producto_seleccionado = (
-                PRODUCTO_SELECCIONADO_CLIENTES.get(
-                    numero_cliente
-                )
-            )
-
-            print(
-                "Producto seleccionado antes de OpenAI:",
-                producto_seleccionado
-            )
-
             pedido_interpretado = interpretar_pedido(
-                texto_cliente,
-                producto_seleccionado
+                texto_cliente
             )
 
             print(
-                "Pedido interpretado por OpenAI:",
+                "Pedido interpretado:",
                 pedido_interpretado
             )
 
