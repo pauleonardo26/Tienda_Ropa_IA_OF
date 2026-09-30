@@ -1862,6 +1862,10 @@ def recibir_mensaje():
 
                 if boton_id == "nina_polo_mc_grande":
 
+                    PRODUCTO_SELECCIONADO_CLIENTES[numero_cliente] = (
+                         "Polo Niña Manga Corta Grande"
+                    )
+
                     registrar_actividad(numero_cliente)
 
                     enviar_polo_mc_grande(
