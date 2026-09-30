@@ -1874,11 +1874,16 @@ def recibir_mensaje():
 
                     return "EVENT_RECEIVED", 200
 
+                
                 # -------------------------------------------------
                 # 20.5.6 - POLO M/L PEQUEÑO
                 # -------------------------------------------------
 
                 if boton_id == "nina_polo_ml_pequeno":
+
+                    PRODUCTO_SELECCIONADO_CLIENTES[numero_cliente] = (
+                          "Polo Niña Manga Larga Pequeño"
+                    )
 
                     registrar_actividad(numero_cliente)
 
@@ -1887,12 +1892,17 @@ def recibir_mensaje():
                     )
 
                     return "EVENT_RECEIVED", 200
+    
 
                 # -------------------------------------------------
                 # 20.5.7 - POLO M/L GRANDE
                 # -------------------------------------------------
 
                 if boton_id == "nina_polo_ml_grande":
+
+                    PRODUCTO_SELECCIONADO_CLIENTES[numero_cliente] = (
+                          "Polo Niña Manga Larga Grande"
+                    )
 
                     registrar_actividad(numero_cliente)
 
@@ -1901,6 +1911,7 @@ def recibir_mensaje():
                     )
 
                     return "EVENT_RECEIVED", 200
+            
 
                 # =================================================
                 # 20.5.8 - CONTINUAR PEDIDO
