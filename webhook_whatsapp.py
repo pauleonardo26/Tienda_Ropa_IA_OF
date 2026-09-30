@@ -2205,7 +2205,7 @@ def recibir_mensaje():
 
                     return "EVENT_RECEIVED", 200
 
-            # =====================================================
+                    # =====================================================
             # 20.6 - LISTAS INTERACTIVAS
             # =====================================================
 
@@ -2256,9 +2256,14 @@ def recibir_mensaje():
                 invalidar_botones(numero_cliente)
                 consumir_boton(numero_cliente, opcion_id)
 
+                # -------------------------------------------------
+                # 20.6.1 - LEGGING
+                # -------------------------------------------------
+
                 if opcion_id == "nina_legging":
 
                     PRODUCTO_SELECCIONADO_CLIENTES[numero_cliente] = "Legging Niña"
+
                     registrar_actividad(numero_cliente)
 
                     enviar_tarjeta_legging(
@@ -2267,7 +2272,13 @@ def recibir_mensaje():
 
                     return "EVENT_RECEIVED", 200
 
+                # -------------------------------------------------
+                # 20.6.2 - POLO M/C PEQUEÑO
+                # -------------------------------------------------
+
                 if opcion_id == "nina_polo_mc_pequeno":
+
+                    PRODUCTO_SELECCIONADO_CLIENTES[numero_cliente] = "Polo Niña Manga Corta Pequeño"
 
                     registrar_actividad(numero_cliente)
 
@@ -2277,7 +2288,13 @@ def recibir_mensaje():
 
                     return "EVENT_RECEIVED", 200
 
+                # -------------------------------------------------
+                # 20.6.3 - POLO M/C GRANDE
+                # -------------------------------------------------
+
                 if opcion_id == "nina_polo_mc_grande":
+
+                    PRODUCTO_SELECCIONADO_CLIENTES[numero_cliente] = "Polo Niña Manga Corta Grande"
 
                     registrar_actividad(numero_cliente)
 
@@ -2287,7 +2304,13 @@ def recibir_mensaje():
 
                     return "EVENT_RECEIVED", 200
 
+                # -------------------------------------------------
+                # 20.6.4 - POLO M/L PEQUEÑO
+                # -------------------------------------------------
+
                 if opcion_id == "nina_polo_ml_pequeno":
+
+                    PRODUCTO_SELECCIONADO_CLIENTES[numero_cliente] = "Polo Niña Manga Larga Pequeño"
 
                     registrar_actividad(numero_cliente)
 
@@ -2297,7 +2320,13 @@ def recibir_mensaje():
 
                     return "EVENT_RECEIVED", 200
 
+                # -------------------------------------------------
+                # 20.6.5 - POLO M/L GRANDE
+                # -------------------------------------------------
+
                 if opcion_id == "nina_polo_ml_grande":
+
+                    PRODUCTO_SELECCIONADO_CLIENTES[numero_cliente] = "Polo Niña Manga Larga Grande"
 
                     registrar_actividad(numero_cliente)
 
@@ -2328,7 +2357,7 @@ def recibir_mensaje():
                     return "EVENT_RECEIVED", 200
 
                 # -------------------------------------------------
-                # 20.6.1 - HACER PEDIDO DESDE LISTA
+                # 20.6.6 - HACER PEDIDO DESDE LISTA
                 # -------------------------------------------------
 
                 if opcion_id == "hacer_pedido":
@@ -2416,11 +2445,6 @@ def recibir_mensaje():
 
                     return "EVENT_RECEIVED", 200
 
-            print(
-                "Interacción no reconocida."
-            )
-
-            return "EVENT_RECEIVED", 200
 
         # =========================================================
         # 20.7 - MENSAJES QUE NO SON TEXTO
