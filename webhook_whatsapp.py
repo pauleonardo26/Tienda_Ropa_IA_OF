@@ -2205,7 +2205,7 @@ def recibir_mensaje():
 
                     return "EVENT_RECEIVED", 200
 
-                    # =====================================================
+            # =====================================================
             # 20.6 - LISTAS INTERACTIVAS
             # =====================================================
 
@@ -2373,7 +2373,10 @@ def recibir_mensaje():
                         ESTADO_CLIENTES[
                             numero_cliente
                         ] = "esperando_pedido"
-                        registrar_actividad(numero_cliente)
+
+                        registrar_actividad(
+                            numero_cliente
+                        )
 
                         cantidad_productos = len(
                             cotizacion_existente.get(
@@ -2405,7 +2408,10 @@ def recibir_mensaje():
                         ESTADO_CLIENTES[
                             numero_cliente
                         ] = "esperando_pedido"
-                        registrar_actividad(numero_cliente)
+
+                        registrar_actividad(
+                            numero_cliente
+                        )
 
                         enviar_mensaje(
                             numero_cliente,
