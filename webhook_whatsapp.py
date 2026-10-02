@@ -1075,6 +1075,15 @@ def validar_pedido_postgresql(pedido_interpretado):
         "leggings": "Leggins Niña",
         "legging niña": "Leggins Niña",
 
+        "polo niña manga corta pequeño":
+        "Polo Niña Manga Corta Pequeño",
+        "polo niña manga corta grande":
+        "Polo Niña Manga Corta Grande",
+        "polo niña manga larga pequeño":
+        "Polo Niña Manga Larga Pequeño",
+        "polo niña manga larga grande":
+        "Polo Niña Manga Larga Grande",
+        
         "polo manga corta pequeño":
             "Polo Niña Manga Corta Pequeño",
 
