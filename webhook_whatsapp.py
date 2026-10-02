@@ -2807,21 +2807,7 @@ def recibir_mensaje():
             # 20.11.8 - MOSTRAR COTIZACION ACUMULADA
             # -----------------------------------------------------
 
-            mensaje_cotizacion = (
-                construir_mensaje_cotizacion(
-                    nueva_cotizacion[
-                        "productos"
-                    ],
-                    nueva_cotizacion[
-                        "total"
-                    ]
-                )
-            )
-
-            enviar_mensaje(
-                numero_cliente,
-                mensaje_cotizacion
-            )
+            
 
             # -----------------------------------------------------
             # 20.11.9 - MOSTRAR CONTINUAR / FINALIZAR
